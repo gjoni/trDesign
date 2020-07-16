@@ -4,10 +4,12 @@ The package summarizes developments on the use of [trRosetta](https://github.com
 structure prediction network for various protein design applications. We provide core codes for the 
 following papers:
 
-[01] I Anishchenko, TM Chidyausiku, S Ovchinnikov, SJ Pellock, D Baker. 
+[01.](https://github.com/gjoni/trDesign/tree/master/01-hallucinations)
+I Anishchenko, TM Chidyausiku, S Ovchinnikov, SJ Pellock, D Baker. 
 De novo protein design by deep network hallucination. (2020) bioRxiv
 
-[02] C Norn, B Wicky, D Juergens, S Liu, D Kim, B Koepnick, I Anishchenko, Foldit Players, D Baker, S Ovchinnikov. 
+[02.](https://github.com/gjoni/trDesign/tree/master/02-backprop)
+C Norn, B Wicky, D Juergens, S Liu, D Kim, B Koepnick, I Anishchenko, Foldit Players, D Baker, S Ovchinnikov. 
 Protein sequence design by explicit energy landscape optimization. (2020) bioRxiv
 
 ## Download
