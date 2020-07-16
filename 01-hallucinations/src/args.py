@@ -19,9 +19,9 @@ def get_args_hallucinate():
     parser.add_argument("--schedule=",   type=str, required=False, dest='SCHED', default="0.1,40000,2.0,5000",
                         help="simulated annealing schedule: 'T0,n_steps,decrease_factor,decrease_range'")
 
-    parser.add_argument("--trrosetta=",  type=str, required=False, dest='TRDIR', default="../model2019_07",
+    parser.add_argument("--trrosetta=",  type=str, required=False, dest='TRDIR', default="../trRosetta/model2019_07",
                         help="path to trRosetta network weights")
-    parser.add_argument("--background=", type=str, required=False, dest='BKDIR', default="../bkgr2019_05",
+    parser.add_argument("--background=", type=str, required=False, dest='BKDIR', default="../background/bkgr2019_05",
                         help="path to background network weights")
 
     parser.add_argument("--rm_aa=", type=str, required=False, dest='RM_AA', default="",
