@@ -1,0 +1,3 @@
+[submodule "trRosetta"]
+	path = trRosetta
+	url = https://github.com/gjoni/trRosetta
