@@ -1,18 +1,18 @@
 # ***trRosetta*** for protein design
 
-The package summarizes developments on the use of [trRosetta](https://github.com/gjoni/trRosetta) 
+The package summarizes developments on the use of [***trRosetta***](https://github.com/gjoni/trRosetta) 
 structure prediction network for various protein design applications. We provide core codes for the 
-following papers:
+following paper:
 
 [01.](https://github.com/gjoni/trDesign/tree/master/01-hallucinations)
 I Anishchenko, TM Chidyausiku, S Ovchinnikov, SJ Pellock, D Baker. 
 De novo protein design by deep network hallucination. (2020) bioRxiv
 
-[02.](https://github.com/gjoni/trDesign/tree/master/02-backprop)
-C Norn, B Wicky, D Juergens, S Liu, D Kim, B Koepnick, I Anishchenko, Foldit Players, D Baker, S Ovchinnikov. 
-Protein sequence design by explicit energy landscape optimization. (2020) bioRxiv
 
-## Download
+## Requirements
+```tensorflow``` (tested on versions ```1.13``` and ```1.14```)
+
+## Download and installation
 
 ```
 # download package
@@ -31,6 +31,8 @@ mkdir -p background && tar xf bkgr2019_05.tar.bz2 -C background/
 
 ## Links
 
-* [structure modeling scripts](http://yanglab.nankai.edu.cn/trRosetta/download/) (require [PyRosetta](http://www.pyrosetta.org/))
+* [***trRosetta*** structure prediction network](https://github.com/gjoni/trRosetta)
 
-* [***trRosetta*** server](http://yanglab.nankai.edu.cn/trRosetta/)
+* [***trRosetta*** structure prediction server](http://yanglab.nankai.edu.cn/trRosetta/)
+
+* [structure modeling scripts](http://yanglab.nankai.edu.cn/trRosetta/download/) (require [PyRosetta](http://www.pyrosetta.org/))
