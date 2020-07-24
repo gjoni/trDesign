@@ -11,7 +11,8 @@ De novo protein design by deep network hallucination. (2020) bioRxiv, doi:10.110
 
 [02.](https://github.com/gjoni/trDesign/tree/master/02-GD)
 C Norn, B Wicky, D Juergens, S Liu, D Kim, B Koepnick, I Anishchenko, Foldit Players, D Baker, S Ovchinnikov.
-Protein sequence design by explicit energy landscape optimization. (2020) bioRxiv.
+Protein sequence design by explicit energy landscape optimization. (2020) bioRxiv, doi:10.1101/2020.07.23.218917.
+[LINK](https://www.biorxiv.org/content/10.1101/2020.07.23.218917v1)
 
 
 ## Requirements
