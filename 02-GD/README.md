@@ -6,6 +6,8 @@ wget -qnc https://files.ipd.uw.edu/krypton/TrRosetta/bkgr_models.zip
 unzip -qqo models.zip
 unzip -qqo bkgr_models.zip
 ```
+IMPORTANT: Modify `DB_DIR` in `utils.py`, set path to the databases
+
 Run example
 ```
 python design.py -p 1QYS.pdb -o tmp.txt
@@ -23,15 +25,6 @@ Backbone Design (if PDB provided)
 -------------------------------------------------------------------------------------
 --pdb=       -p   : PDB for fixed backbone design
 --chain=     -c   : specify chain to use
---mask=      -m   : set positions to rebuild ['start-end:min-max,...']
-                    NOTE: the positions are zero-indexed, first position=0
-                    use 'start-end' to specify region to rebuild
-                    use 'min-max'   to specify length of indel
-                    ex: '10-15:0-5' replace pos. 10-15 with variable-loop of length 0-5
-                    ex: '10-15:5'   replace pos. 10-15 with fixed-loop of length 5
-                    ex: '10-15'     remove pdb cst. from positions 10 to 15
-                    ex: '10'        remove pdb cst. from position 10
---sam=       -s   : number of samples per design run [if --mask]
 -------------------------------------------------------------------------------------
 Extras
 -------------------------------------------------------------------------------------
@@ -40,8 +33,6 @@ Extras
                     ex: 'C' or 'W,Y,F'
 --save_img        : save image of contact map
 --save_npz        : save data for PyRosetta
---save_pdb        : use magic to quickly generate PDB structure
---scwrl           : use scwrl to add sidechains [if --save_pdb]
 -------------------------------------------------------------------------------------
 Experimental options
 -------------------------------------------------------------------------------------
