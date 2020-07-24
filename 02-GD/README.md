@@ -36,7 +36,7 @@ Extras
 --rm_aa=          : disable specific amino acids from being sampled
                     ex: 'C' or 'W,Y,F'
 --save_img        : save image of contact map
---save_npz        : save data for PyRosetta
+--save_npz        : save data for TrRosetta (structure prediction)
 -------------------------------------------------------------------------------------
 Experimental options
 -------------------------------------------------------------------------------------
