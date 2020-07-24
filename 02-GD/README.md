@@ -1,4 +1,6 @@
 # TrR_for_design (via Gradient Descent)
+Coming soon... Manuscript describing method/analysis awaiting bioRxiv.org approval.
+
 ![Figure showing method](https://github.com/gjoni/trDesign/raw/master/02-GD/g937.png)
 
 Download Models
