@@ -1,5 +1,6 @@
 # TrR_for_design (via Gradient Descent)
-Coming soon... Manuscript describing method/analysis awaiting bioRxiv.org approval.
+
+*Protein sequence design by explicit energy landscape optimization* - [LINK](https://www.biorxiv.org/content/10.1101/2020.07.23.218917v1)
 
 ![Figure showing method](https://github.com/gjoni/trDesign/raw/master/02-GD/g937.png)
 
