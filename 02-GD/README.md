@@ -37,7 +37,6 @@ Extras
 Experimental options
 -------------------------------------------------------------------------------------
 --pssm_design     : design a PSSM instead of a single sequence
---pssm_mask       : use PSSM in regions constrained by PDB
 --msa_design      : design a MSA instead of a single sequence
 --msa_num=        : number of sequences in MSA
 --feat_drop=      : dropout rate for features
