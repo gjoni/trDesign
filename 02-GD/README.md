@@ -1,4 +1,6 @@
-# TrR_for_design
+# TrR_for_design (via Gradient Descent)
+![Figure showing method](https://github.com/gjoni/trDesign/raw/master/02-GD/g937.png)
+
 Download Models
 ```
 wget -qnc https://files.ipd.uw.edu/krypton/TrRosetta/models.zip
@@ -6,11 +8,11 @@ wget -qnc https://files.ipd.uw.edu/krypton/TrRosetta/bkgr_models.zip
 unzip -qqo models.zip
 unzip -qqo bkgr_models.zip
 ```
-IMPORTANT: Modify `DB_DIR` in `utils.py`, set path to the databases
+IMPORTANT: Modify `DB_DIR` in `utils.py`, set path to models
 
 Run example
 ```
-python design.py -p 1QYS.pdb -o tmp.txt
+python design.py -p 1QYS.pdb -o tmp.txt --save_png
 ```
 HELP
 ```
