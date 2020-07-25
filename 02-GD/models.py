@@ -252,10 +252,12 @@ class mk_design_model:
   ###############################################################################
   # DO DESIGN
   ###############################################################################
-  def design(self, inputs, weights, num=1, rm_aa=None,
+  def design(self, inputs, weights=None, num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_repeat=1,
              opt_iter=100, opt_rate=1.0, opt_decay=2.0, verbose=True,
              return_traj=False):
+    
+    if weights is None: weights = {}
 
     # define length
     if   "pdb" in inputs: L = inputs["pdb"].shape[-2]
@@ -329,7 +331,8 @@ class mk_design_model:
             "losses":losses, "traj":traj}
 
   ###############################################################################
-  def predict(self, inputs, weights, train=True):
+  def predict(self, inputs, weights=None, train=True):
+    if weights is None: weights = {}
     # prep inputs
     weights_list = to_list(self.loss_label, weights, 1)
     inputs["loss_weights"] = np.array(weights_list)[None]
