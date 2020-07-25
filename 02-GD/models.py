@@ -111,9 +111,8 @@ class mk_design_model:
   ###############################################################################
   def __init__(self, add_pdb=False, add_pdb_mask=False, add_bkg=False,
                add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
-               pssm_design=False, pssm_mask=False, msa_design=False,
-               feat_drop=0, eps=1e-8, sample=False, DB_DIR=".", lid=0.3, lid_scale=18.0,
-               pdb_kl=False):
+               pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
+               DB_DIR=".", lid=0.3, lid_scale=18.0):
 
     self.sample,self.serial = sample,serial
     self.feat_drop = feat_drop
@@ -161,12 +160,8 @@ class mk_design_model:
     if msa_design:
       print("mode: msa design")
       I_feat = MRF(lid=lid, lid_scale=lid_scale)(add_gap(I_seq))
-    elif pssm_design or pssm_mask:
+    elif pssm_design:
         print("mode: pssm design")
-        if pssm_mask and add_pdb_mask:
-          print("mixed sequence/pssm design")
-          m = pdb_mask[:,None,:,None]
-          I_pssm = m*I_pssm + (1-m)*I_seq
         I_feat = PSSM(diag=diag)([I_seq,add_gap(I_pssm)])
     else:
       print("mode: single sequence design")
@@ -206,12 +201,7 @@ class mk_design_model:
       pdb_mask_2D = tf.reduce_sum(pdb,-1)/4
       if add_pdb_mask:
         pdb_mask_2D *= pdb_mask[:,:,None]*pdb_mask[:,None,:]
-      if pdb_kl:
-        # Linder et al. 2020
-        pdb_loss = K.sum(pdb*K.log(pdb/(O_feat+eps)+eps),-1) * pdb_mask_2D
-      else:
-        pdb_loss = -0.25*K.sum(pdb*K.log(O_feat+eps),-1) * pdb_mask_2D
-
+      pdb_loss = -0.25*K.sum(pdb*K.log(O_feat+eps),-1) * pdb_mask_2D
       add_loss(K.sum(pdb_loss,[-1,-2])/(K.sum(pdb_mask_2D,[-1,-2])+eps),"pdb")
 
     # kl loss for hallucination
