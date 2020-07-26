@@ -109,7 +109,7 @@ class mk_design_model:
   ###############################################################################
   # DO SETUP
   ###############################################################################
-  def __init__(self, add_pdb=False, add_pdb_mask=False, add_bkg=False,
+  def __init__(self, add_pdb=False, add_bkg=False,
                add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
                DB_DIR=".", lid=0.3, lid_scale=18.0):
@@ -131,8 +131,6 @@ class mk_design_model:
     I = add_input((None,None,20),"I")
     if add_pdb:
       pdb = add_input((None,None,100),"pdb")
-    if add_pdb_mask:
-      pdb_mask = add_input((None,),"pdb_mask")
     if add_bkg:
       bkg = add_input((None,None,100),"bkg")
 
@@ -198,19 +196,13 @@ class mk_design_model:
 
     # cross-entropy loss for fixed backbone design
     if add_pdb:
-      pdb_mask_2D = tf.reduce_sum(pdb,-1)/4
-      if add_pdb_mask:
-        pdb_mask_2D *= pdb_mask[:,:,None]*pdb_mask[:,None,:]
-      pdb_loss = -0.25*K.sum(pdb*K.log(O_feat+eps),-1) * pdb_mask_2D
-      add_loss(K.sum(pdb_loss,[-1,-2])/(K.sum(pdb_mask_2D,[-1,-2])+eps),"pdb")
+      pdb_loss = -0.25*K.sum(pdb*K.log(O_feat+eps),-1)
+      add_loss(K.mean(pdb_loss,[-1,-2]),"pdb")
 
     # kl loss for hallucination
     if add_bkg:
-      bkg_mask_2D = tf.reduce_sum(bkg,-1)/4
-      if add_pdb_mask:
-        bkg_mask_2D *= (1-pdb_mask[:,:,None]*pdb_mask[:,None,:])
-      bkg_loss = -0.25*K.sum(O_feat*K.log(O_feat/(bkg+eps)+eps),-1) * bkg_mask_2D
-      add_loss(K.sum(bkg_loss,[-1,-2])/(K.sum(bkg_mask_2D,[-1,-2])+eps),"bkg")
+      bkg_loss = -0.25*K.sum(O_feat*K.log(O_feat/(bkg+eps)+eps),-1)
+      add_loss(K.mean(bkg_loss,[-1,-2]),"bkg")
 
     # amino acid composition loss
     if add_aa_ref:
