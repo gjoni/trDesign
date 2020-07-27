@@ -15,7 +15,7 @@ IMPORTANT: Modify `DB_DIR` in `utils.py`, set path to models
 
 Run example
 ```
-python design.py -p 1QYS.pdb -o tmp.txt --save_png
+python design.py -p 1QYS.pdb -o tmp.txt
 ```
 HELP
 ```
