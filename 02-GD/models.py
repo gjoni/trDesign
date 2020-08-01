@@ -1,5 +1,7 @@
+# supressing warnings
 import warnings, logging, os
 warnings.filterwarnings('ignore',category=FutureWarning)
+warnings.simplefilter(action='ignore', category=FutureWarning)
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -8,6 +10,9 @@ import numpy as np
 # Should work in both TF1 and TF2
 import tensorflow as tf
 import tensorflow.compat.v1 as tf1
+# supressing more warnings
+tf1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
 import tensorflow.compat.v1.keras.backend as K1
 from tensorflow.keras.models import Model, clone_model
 from tensorflow.keras.layers import Input, Conv2D, Activation, Dense, Lambda, Layer, Concatenate, Average
