@@ -164,7 +164,7 @@ class mk_design_model:
         I_feat = PSSM(diag=diag)([I_seq,add_gap(I_pssm)])
     else:
       print("mode: single sequence design")
-      I_feat = PSSM(diag=diag, use_entropy=False)([I_seq,add_gap(I_seq)])
+      I_feat = PSSM(diag=diag)([I_seq,add_gap(I_seq)])
 
     # add dropout to features
     if self.feat_drop > 0:
@@ -338,7 +338,7 @@ class mk_design_model:
 # process input features
 ##################################################################################
 class MRF(Layer):
-  def __init__(self, lam=4.5, lid=0, lid_scale=0, use_entropy=True):
+  def __init__(self, lam=4.5, lid=0, lid_scale=0, use_entropy=False):
     super(MRF, self).__init__()
     self.lam = lam
     self.use_entropy = use_entropy
@@ -411,7 +411,7 @@ class MRF(Layer):
 
 class PSSM(Layer):
   # modified from MRF to only output tiled 1D features
-  def __init__(self, diag=0.4, use_entropy=True):
+  def __init__(self, diag=0.4, use_entropy=False):
     super(PSSM, self).__init__()
     self.diag = diag
     self.use_entropy = use_entropy
