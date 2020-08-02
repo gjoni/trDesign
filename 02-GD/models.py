@@ -1,7 +1,6 @@
 # supressing warnings
 import warnings, logging, os
 warnings.filterwarnings('ignore',category=FutureWarning)
-warnings.simplefilter(action='ignore', category=FutureWarning)
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -10,9 +9,6 @@ import numpy as np
 # Should work in both TF1 and TF2
 import tensorflow as tf
 import tensorflow.compat.v1 as tf1
-# supressing more warnings
-tf1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
 import tensorflow.compat.v1.keras.backend as K1
 from tensorflow.keras.models import Model, clone_model
 from tensorflow.keras.layers import Input, Conv2D, Activation, Dense, Lambda, Layer, Concatenate, Average
@@ -168,7 +164,7 @@ class mk_design_model:
         I_feat = PSSM(diag=diag)([I_seq,add_gap(I_pssm)])
     else:
       print("mode: single sequence design")
-      I_feat = PSSM(diag=diag)([I_seq,add_gap(I_seq)])
+      I_feat = PSSM(diag=diag, use_entropy=False)([I_seq,add_gap(I_seq)])
 
     # add dropout to features
     if self.feat_drop > 0:
@@ -242,7 +238,7 @@ class mk_design_model:
   def design(self, inputs, weights=None, num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_repeat=1,
              opt_iter=100, opt_rate=1.0, opt_decay=2.0, verbose=True,
-             return_traj=False):
+             return_traj=False, shuf=True):
     
     if weights is None: weights = {}
 
@@ -267,8 +263,9 @@ class mk_design_model:
       for k in range(opt_iter):
 
         # permute input (for msa_design)
-        idx = np.random.permutation(np.arange(inputs["I"].shape[1]))
-        inputs["I"] = inputs["I"][:,idx]
+        if shuf and num > 0:
+          idx = np.random.permutation(np.arange(inputs["I"].shape[1]))
+          inputs["I"] = inputs["I"][:,idx]
 
         # compute loss/gradient
         p = self.predict(inputs,weights=weights)
@@ -337,56 +334,14 @@ class mk_design_model:
       return to_dict(self.out_label, self.model.predict(inputs_list))
   ###############################################################################
 
-class mk_predict_model:
-  ###############################################################################
-  # SETUP model to get LOSS and GRADIENTS
-  ###############################################################################
-  def __init__(self, n_models=5, msa_design=False, diag=0.4,
-               eps=1e-8, DB_DIR=".", serial=False):
-    self.serial = serial
-
-    K.clear_session()
-    K1.set_session(tf1.Session(config=config))
-    input_params = {"batch_size":1,"dtype":tf.float32}
-
-    # inputs
-    I = Input(shape=(None, None, 21), **input_params)
-    I_seq = tf.one_hot(tf.argmax(I[...,:20],-1),20)
-    def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    if msa_design: I_feat = MRF()(I)
-    else: I_feat = PSSM(diag=diag)([I_seq,I])
-
-    # load each model
-    self.models = []
-    for token in ["xaa","xab","xac","xad","xae"][:n_models]:
-      print(f"loading model: {token}")
-      weights = load_weights(f"{DB_DIR}/models/model_{token}.npy")
-      if self.serial: self.models.append(weights)
-      else: self.models.append(RESNET(weights=weights, mode="TrR")(I_feat))
-
-    if self.serial: O_feat = RESNET(mode="TrR")(I_feat)
-    else: O_feat = tf.reduce_mean(self.models,0)
-
-    # define model
-    self.model = Model(I, O_feat)
-
-  def predict(self, inputs):
-    if self.serial:
-      preds = []
-      for weights in self.models:
-        self.model.set_weights(weights)
-        preds.append(self.model.predict(inputs))
-      return np.mean(preds,0)
-    else:
-      return self.model.predict(inputs)
-
 ##################################################################################
 # process input features
 ##################################################################################
 class MRF(Layer):
-  def __init__(self, lam=4.5, lid=0, lid_scale=0):
+  def __init__(self, lam=4.5, lid=0, lid_scale=0, use_entropy=True):
     super(MRF, self).__init__()
     self.lam = lam
+    self.use_entropy = use_entropy
     # experimental flags for downweighting distant sequences
     self.lid, self.lid_scale = lid, lid_scale
 
@@ -441,7 +396,10 @@ class MRF(Layer):
       # pssm
       f_i = tf.reduce_sum(weights[:,None,None] * x, axis=0) / tf.reduce_sum(weights)
       # entropy
-      h_i = tf.zeros((L,1))
+      if self.use_entropy:
+        h_i = K.sum(-f_i * K.log(f_i + 1e-8), axis=-1, keepdims=True)
+      else:
+        h_i = tf.zeros((L,1))
       # tile and combine 1D features
       feat_1D = tf.concat([x_i,f_i,h_i], axis=-1)
       feat_1D_tile_A = tf.tile(feat_1D[:,None,:], [1,L,1])
@@ -453,9 +411,10 @@ class MRF(Layer):
 
 class PSSM(Layer):
   # modified from MRF to only output tiled 1D features
-  def __init__(self, diag=0.4):
+  def __init__(self, diag=0.4, use_entropy=True):
     super(PSSM, self).__init__()
     self.diag = diag
+    self.use_entropy = use_entropy
   def call(self, inputs):
     x,y = inputs
     _,_,L,A = [tf.shape(y)[k] for k in range(4)]
@@ -465,8 +424,10 @@ class PSSM(Layer):
       # pssm
       f_i = y[0,0]
       # entropy
-      h_i = tf.zeros((L,1))
-      #h_i = K.sum(-f_i * K.log(f_i + 1e-8), axis=-1, keepdims=True)
+      if self.use_entropy:
+        h_i = K.sum(-f_i * K.log(f_i + 1e-8), axis=-1, keepdims=True)
+      else:
+        h_i = tf.zeros((L,1))
       # tile and combined 1D features
       feat_1D = tf.concat([x_i,f_i,h_i], axis=-1)
       feat_1D_tile_A = tf.tile(feat_1D[:,None,:], [1,L,1])
