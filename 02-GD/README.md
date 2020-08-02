@@ -2,7 +2,7 @@
 
 *Protein sequence design by explicit energy landscape optimization* - [LINK](https://www.biorxiv.org/content/10.1101/2020.07.23.218917v1)
 
-![Figure showing method](https://github.com/gjoni/trDesign/raw/master/02-GD/g937.png)
+![Figure showing method](https://raw.githubusercontent.com/gjoni/trDesign/master/02-GD/notebooks/g937.png)
 
 Download Models
 ```
