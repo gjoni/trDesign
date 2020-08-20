@@ -113,7 +113,7 @@ class mk_design_model:
   def __init__(self, add_pdb=False, add_bkg=False,
                add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
-               DB_DIR=".", lid=[0.3,18.0], uid=[0.8,100.0]):
+               DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
     self.sample,self.serial = sample,serial
     self.feat_drop = feat_drop
@@ -342,7 +342,7 @@ class mk_design_model:
 # process input features
 ##################################################################################
 class MRF(Layer):
-  def __init__(self, lam=4.5, lid=[0.3,18.0], uid=[0.8,100.0], use_entropy=False):
+  def __init__(self, lam=4.5, lid=[0.3,18.0], uid=[1,0], use_entropy=False):
     super(MRF, self).__init__()
     self.lam = lam
     self.use_entropy = use_entropy
