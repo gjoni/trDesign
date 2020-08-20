@@ -218,18 +218,22 @@ class mk_design_model:
       aa_loss = K.sum(I_soft*K.log(I_soft/(aa+eps)+eps),-1)
       add_loss(K.mean(aa_loss,[-1,-2]), "aa")
 
-    ################################
-    # define gradients
-    ################################
-    print(f"The loss function is composed of the following: {self.loss_label}")
-    loss = tf.stack(loss,-1) * loss_weights
-    grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])
+    if len(loss) > 0:
+      ################################
+      # define gradients
+      ################################
+      print(f"The loss function is composed of the following: {self.loss_label}")
+      loss = tf.stack(loss,-1) * loss_weights
+      grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])
 
-    ################################
-    # define model
-    ################################
-    self.out_label = ["grad","loss","feat","pssm"]
-    outputs = [grad,loss,O_feat,I_pssm]
+      ################################
+      # define model
+      ################################
+      self.out_label = ["grad","loss","feat","pssm"]
+      outputs = [grad,loss,O_feat,I_pssm]
+    else:
+      self.out_label = ["feat"]
+      outputs = [O_feat]
     self.model = Model(inputs, outputs)
 
   ###############################################################################
