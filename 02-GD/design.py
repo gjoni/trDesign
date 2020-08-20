@@ -76,7 +76,7 @@ def main(argv):
   # configure params
   s_inputs = {"sample":o.opt_sample, "n_models":o.n_models, "feat_drop":o.feat_drop,
               "pssm_design":o.pssm_design, "serial":o.serial,
-              "DB_DIR":DB_DIR, "lid":o.lid, "lid_scale":o.lid_scale, "diag":o.diag}
+              "DB_DIR":DB_DIR, "lid":[o.lid,o.lid_scale], "diag":o.diag}
 
   d_inputs = {"opt_iter":o.opt_iter, "opt_rate":o.opt_rate, "opt_repeat":o.opt_repeat}
 
