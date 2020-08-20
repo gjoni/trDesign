@@ -232,8 +232,8 @@ class mk_design_model:
       self.out_label = ["grad","loss","feat","pssm"]
       outputs = [grad,loss,O_feat,I_pssm]
     else:
-      self.out_label = ["feat"]
-      outputs = [O_feat]
+      self.out_label = ["feat","pssm"]
+      outputs = [O_feat,I_pssm]
     self.model = Model(inputs, outputs)
 
   ###############################################################################
