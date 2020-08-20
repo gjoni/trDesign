@@ -113,7 +113,7 @@ class mk_design_model:
   def __init__(self, add_pdb=False, add_bkg=False,
                add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
-               DB_DIR=".", lid=0.3, lid_scale=18.0):
+               DB_DIR=".", lid=[0.3,18.0], uid=[0.8,100.0]):
 
     self.sample,self.serial = sample,serial
     self.feat_drop = feat_drop
@@ -146,7 +146,7 @@ class mk_design_model:
       if sample:
         # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
         U = tf.random.uniform(tf.shape(y),minval=0,maxval=1)
-        y_pssm_sampled = tf.nn.softmax(y-tf.math.log(-tf.math.log(U+1e-8)+1e-8))
+        y_pssm_sampled = tf.nn.softmax(y-tf.math.log(-tf.math.log(U+eps)+eps))
         y_pssm = K.switch(train, y_pssm_sampled, tf.nn.softmax(y,-1))
       else:
         y_pssm = tf.nn.softmax(y,-1)
@@ -158,7 +158,7 @@ class mk_design_model:
     # configuring input
     if msa_design:
       print("mode: msa design")
-      I_feat = MRF(lid=lid, lid_scale=lid_scale)(add_gap(I_seq))
+      I_feat = MRF(lid=lid,uid=uid)(add_gap(I_seq))
     elif pssm_design:
         print("mode: pssm design")
         I_feat = PSSM(diag=diag)([I_seq,add_gap(I_pssm)])
@@ -338,12 +338,12 @@ class mk_design_model:
 # process input features
 ##################################################################################
 class MRF(Layer):
-  def __init__(self, lam=4.5, lid=0, lid_scale=0, use_entropy=False):
+  def __init__(self, lam=4.5, lid=[0.3,18.0], uid=[0.8,100.0], use_entropy=False):
     super(MRF, self).__init__()
     self.lam = lam
     self.use_entropy = use_entropy
-    # experimental flags for downweighting distant sequences
-    self.lid, self.lid_scale = lid, lid_scale
+    self.lid, self.lid_scale = lid
+    self.uid, self.uid_scale = uid
 
   def call(self, inputs):
     x = inputs[0]
@@ -351,12 +351,15 @@ class MRF(Layer):
     F = L*A
 
     with tf.name_scope('reweight'):
-      if self.lid > 0.0:
-        # experimental option to downweight distant sequences
+      if self.lid > 0 or self.uid < 1:
         id_len = tf.cast(L, tf.float32)
         id_mtx = tf.tensordot(x,x,[[1,2],[1,2]]) / id_len
-        id_mask = tf.sigmoid((self.lid-id_mtx)*self.lid_scale)
-        weights = 1.0/(tf.reduce_sum(id_mask,-1)+1.0)
+        id_mask = []
+        # downweight distant sequences
+        if self.lid > 0: id_mask.append(tf.sigmoid((self.lid-id_mtx) * self.lid_scale))
+        # downweight close sequences
+        if self.uid < 1: id_mask.append(tf.sigmoid((id_mtx-self.uid) * self.uid_scale))
+        weights = 1.0/(tf.reduce_sum(sum(id_mask),-1) + (self.uid == 1))
       else:
         # give each sequence equal weight
         weights = tf.ones(N)
