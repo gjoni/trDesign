@@ -295,7 +295,7 @@ class mk_design_model:
         if opt_method == "ADAM":
           mt = b1*mt + (1-b1)*p["grad"]
           vt = b2*vt + (1-b2)*np.square(p["grad"]).sum((-1,-2),keepdims=True)
-          grad = mt/(np.sqrt(vt) + 1e-8)
+          p["grad"] = mt/(np.sqrt(vt) + 1e-8)
           lr = opt_rate
 
         # update
