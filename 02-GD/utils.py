@@ -94,7 +94,7 @@ def extend(a,b,c, L,A,D):
   input:  3 coords (a,b,c), (L)ength, (A)ngle, and (D)ihedral
   output: 4th coord
   '''
-  N = lambda x: x/np.sqrt(np.square(x).sum(-1,keepdims=True))
+  N = lambda x: x/np.sqrt(np.square(x).sum(-1,keepdims=True) + 1e-8)
   bc = N(b-c)
   n = N(np.cross(b-a, bc))
   m = [bc,np.cross(n,bc),n]
