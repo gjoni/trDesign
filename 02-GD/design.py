@@ -54,6 +54,7 @@ def main(argv):
   ag.add(["lid="],        0.3,   float)
   ag.add(["lid_scale="],  18.0,  float)
   ag.add(["aa_ref"],      False, None)
+  ag.add(["aa_old"],      False, None)
   ag.txt("-------------------------------------------------------------------------------------")
   ag.txt("Optimization settings")
   ag.txt("-------------------------------------------------------------------------------------")
@@ -86,7 +87,8 @@ def main(argv):
   if o.opt_decay:                         d_inputs["opt_method"] = "GD_decay"
 
   if o.aa_weight > 0:
-    if o.aa_ref: s_inputs["add_aa_ref"] = True
+    if o.aa_old: s_inputs["add_aa_comp_old"] = True
+    elif o.aa_ref: s_inputs["add_aa_ref"] = True
     else: s_inputs["add_aa_comp"] = True
 
   if o.msa_design:
