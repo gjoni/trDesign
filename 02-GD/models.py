@@ -111,7 +111,7 @@ class mk_design_model:
   # DO SETUP
   ###############################################################################
   def __init__(self, add_pdb=False, add_bkg=False,
-               add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
+               add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
@@ -207,16 +207,23 @@ class mk_design_model:
 
     # amino acid composition loss
     if add_aa_ref:
+      # experimental
       aa = tf.constant(AA_REF, dtype=tf.float32)
       I_soft = tf.nn.softmax(I,axis=-1)
       aa_loss = K.sum(K.mean(I_soft*aa,[-2,-3]),-1)
       add_loss(aa_loss,"aa")
-
     elif add_aa_comp:
+      # experimental
       aa = tf.constant(AA_COMP, dtype=tf.float32)
       I_soft = tf.nn.softmax(I,axis=-1)
       aa_loss = K.sum(I_soft*K.log(I_soft/(aa+eps)+eps),-1)
-      add_loss(K.mean(aa_loss,[-1,-2]), "aa")
+      add_loss(K.mean(aa_loss,[-1,-2]),"aa")
+    elif add_aa_comp_old:
+      # ivan's original AA comp loss (from hallucination paper)
+      aa = tf.constant(AA_COMP, dtype=tf.float32)
+      I_aa = K.mean(I_seq,-2) # mean over length
+      aa_loss = K.sum(I_aa*K.log(I_aa/(aa+eps)+eps),-1)
+      add_loss(K.mean(aa_loss,-1),"aa")
 
     if len(loss) > 0:
       ################################
@@ -234,6 +241,7 @@ class mk_design_model:
     else:
       self.out_label = ["feat","pssm"]
       outputs = [O_feat,I_pssm]
+      
     self.model = Model(inputs, outputs)
 
   ###############################################################################
