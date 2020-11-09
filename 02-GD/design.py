@@ -60,7 +60,6 @@ def main(argv):
   ag.txt("-------------------------------------------------------------------------------------")
   ag.add(["opt_rate="],   1.0,   float)
   ag.add(["opt_iter="],   100,   int,   ["number of iterations"])
-  ag.add(["opt_repeat="], 1,     int)
   ag.add(["opt_adam"],    False, None,  ["use ADAM optimizer"])
   ag.add(["opt_decay"],   False, None,  ["use GD+Decay optimizer"])
   ag.add(["opt_sample"],  False, None,  ["sample from PSSM instead of taking argmax of PSSM"])
@@ -79,7 +78,7 @@ def main(argv):
               "pssm_design":o.pssm_design, "serial":o.serial,
               "DB_DIR":DB_DIR, "lid":[o.lid,o.lid_scale], "diag":o.diag}
 
-  d_inputs = {"opt_iter":o.opt_iter, "opt_rate":o.opt_rate, "opt_repeat":o.opt_repeat}
+  d_inputs = {"opt_iter":o.opt_iter, "opt_rate":o.opt_rate}
 
   if o.pdb is not None:                   s_inputs["add_pdb"] = True
   if o.pdb is None:                       s_inputs["add_bkg"] = True
