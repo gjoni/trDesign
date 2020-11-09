@@ -270,52 +270,51 @@ class mk_design_model:
       inputs["I"][...,rm_aa] = -1e9
 
     losses, traj = [],[]
+    best_loss, best_I = np.inf,None
+    inputs["I"] += np.random.normal(0,0.01,size=inputs["I"].shape)
+    mt,vt = 0,0
+    
     # optimize
-    for r in range(opt_repeat):
-      best_loss, best_I = np.inf,None
-      inputs["I"] += np.random.normal(0,0.01,size=inputs["I"].shape)
+    for k in range(opt_iter):
+      # permute input (for msa_design)
+      if shuf and num > 0:
+        idx = np.random.permutation(np.arange(inputs["I"].shape[1]))
+        inputs["I"] = inputs["I"][:,idx]
 
-      mt,vt = 0,0
-      for k in range(opt_iter):
-        # permute input (for msa_design)
-        if shuf and num > 0:
-          idx = np.random.permutation(np.arange(inputs["I"].shape[1]))
-          inputs["I"] = inputs["I"][:,idx]
+      # compute loss/gradient
+      p = self.predict(inputs,weights=weights)
+      tot_loss = np.sum(p["loss"])
+      losses.append(tot_loss)
+      if return_traj: traj.append(p)
 
-        # compute loss/gradient
-        p = self.predict(inputs,weights=weights)
-        tot_loss = np.sum(p["loss"])
-        losses.append(tot_loss)
-        if return_traj: traj.append(p)
+      # save best result
+      if tot_loss < best_loss:
+        best_loss, best_I = tot_loss, np.copy(inputs["I"])
 
-        # save best result
-        if tot_loss < best_loss:
-          best_loss, best_I = tot_loss, np.copy(inputs["I"])
+      # GD optimizer
+      if opt_method == "GD":
+        p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
+        lr = opt_rate * np.sqrt(L)
 
-        # GD optimizer
-        if opt_method == "GD":
-          p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
-          lr = opt_rate * np.sqrt(L)
+      # GD optimizer + decay
+      if opt_method == "GD_decay":
+        p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
+        lr = opt_rate * np.power(1 - k/opt_iter, opt_decay)
 
-        # GD optimizer + decay
-        if opt_method == "GD_decay":
-          p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
-          lr = opt_rate * np.power(1 - k/opt_iter, opt_decay)
+      # ADAM optimizer
+      if opt_method == "ADAM":
+        mt = b1*mt + (1-b1)*p["grad"]
+        vt = b2*vt + (1-b2)*np.square(p["grad"]).sum((-1,-2),keepdims=True)
+        p["grad"] = mt/(np.sqrt(vt) + 1e-8)
+        lr = opt_rate
 
-        # ADAM optimizer
-        if opt_method == "ADAM":
-          mt = b1*mt + (1-b1)*p["grad"]
-          vt = b2*vt + (1-b2)*np.square(p["grad"]).sum((-1,-2),keepdims=True)
-          p["grad"] = mt/(np.sqrt(vt) + 1e-8)
-          lr = opt_rate
+      # update
+      inputs["I"] -= lr * p["grad"]
 
-        # update
-        inputs["I"] -= lr * p["grad"]
-
-        # report loss
-        if verbose and (k+1) % 10 == 0:
-          loss_str = str(to_dict(self.loss_label, p["loss"][0])).replace(" ","")
-          print(f"{k+1} loss:{loss_str}")
+      # report loss
+      if verbose and (k+1) % 10 == 0:
+        loss_str = str(to_dict(self.loss_label, p["loss"][0])).replace(" ","")
+        print(f"{k+1} loss:{loss_str}")
 
     # recompute output
     if self.feat_drop == 0 and self.sample == False:
