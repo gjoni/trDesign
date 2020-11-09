@@ -110,7 +110,7 @@ class mk_design_model:
   ###############################################################################
   # DO SETUP
   ###############################################################################
-  def __init__(self, add_pdb=False, add_bkg=False,
+  def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
                add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
@@ -130,10 +130,9 @@ class mk_design_model:
       return inputs[-1]
 
     I = add_input((None,None,20),"I")
-    if add_pdb:
-      pdb = add_input((None,None,100),"pdb")
-    if add_bkg:
-      bkg = add_input((None,None,100),"bkg")
+    if add_pdb: pdb = add_input((None,None,100),"pdb")
+    if add_bkg: bkg = add_input((None,None,100),"bkg")
+    if add_seq_cst: seq_cst = add_input((None,20),"seq_cst")
 
     loss_weights = add_input((None,),"loss_weights")
     train = add_input([],"train",tf.bool)[0]
@@ -204,6 +203,11 @@ class mk_design_model:
     if add_bkg:
       bkg_loss = -0.25*K.sum(O_feat*K.log(O_feat/(bkg+eps)+eps),-1)
       add_loss(K.mean(bkg_loss,[-1,-2]),"bkg")
+      
+    # add sequence constraint
+    if add_seq_cst:
+      seq_cst_loss = -K.sum(seq_cst*K.log(I_pssm + eps),-1)
+      add_loss(K.mean(seq_cst_loss,[-1,-2]),"seq_cst")
 
     # amino acid composition loss
     if add_aa_ref:
@@ -248,8 +252,8 @@ class mk_design_model:
   # DO DESIGN
   ###############################################################################
   def design(self, inputs, weights=None, num=1, rm_aa=None,
-             opt_method="GD", b1=0.9, b2=0.999, opt_repeat=1,
-             opt_iter=100, opt_rate=1.0, opt_decay=2.0, verbose=True,
+             opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
+             opt_rate=1.0, opt_decay=2.0, verbose=True,
              return_traj=False, shuf=True):
     
     if weights is None: weights = {}
@@ -273,7 +277,6 @@ class mk_design_model:
 
       mt,vt = 0,0
       for k in range(opt_iter):
-
         # permute input (for msa_design)
         if shuf and num > 0:
           idx = np.random.permutation(np.arange(inputs["I"].shape[1]))
@@ -337,8 +340,8 @@ class mk_design_model:
 
     if self.serial:
       preds = [[] for _ in range(len(self.model.outputs))]
-      for weights in self.models:
-        self.model.set_weights(weights)
+      for model_weights in self.models:
+        self.model.set_weights(model_weights)
         for n,o in enumerate(self.model.predict(inputs_list)):
           preds[n].append(o)
       return to_dict(self.out_label, [np.mean(pred,0) for pred in preds])
