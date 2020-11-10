@@ -39,14 +39,14 @@ class instance_norm(Layer):
     mean, variance = tf.nn.moments(inputs, self.axes, keepdims=True)
     return tf.nn.batch_normalization(inputs, mean, variance, self.beta, self.gamma, 1e-6)
 
-def RESNET(mode="TrR", blocks=12, weights=None, trainable=False):
+def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1):
   ## INPUT ##
   if mode == "TrR":
     inputs = Input((None,None,526)) # (batch,len,len,feat)
     A = inputs
   if mode == "TrR_BKG":
     inputs = Input(shape=[],dtype=tf.int32)
-    A = Lambda(lambda x: tf.random.normal([1,x[0],x[0],64]))(inputs)
+    A = Lambda(lambda x: tf.random.normal([bkg_sample,x[0],x[0],64]))(inputs)
 
   ex = {"trainable":trainable}
   A = Dense(64, **ex)(A)
@@ -89,18 +89,17 @@ def load_weights(filename):
 ################################################################################################
 # Ivan's TrRosetta Background model for backbone design
 ################################################################################################
-def get_bkg(L, DB_DIR="."):
+def get_bkg(L, DB_DIR=".", sample=1):
   # get background feat for [L]ength
   K.clear_session()
   K1.set_session(tf1.Session(config=config))
   bkg = {l:[] for l in L}
-  bkg_model = RESNET(mode="TrR_BKG", blocks=7)
+  bkg_model = RESNET(mode="TrR_BKG", blocks=7, bkg_sample=sample)
   for w in range(1,5):
     weights = load_weights(f"{DB_DIR}/bkgr_models/bkgr0{w}.npy")
     bkg_model.set_weights(weights)
     for l in L:
-      bkg_model.predict([10])
-      bkg[l].append(bkg_model.predict([l])[0])
+      bkg[l].append(bkg_model.predict([l]).mean(0))
   return {l:np.mean(bkg[l],axis=0) for l in L}
 
 ##############################################################################
