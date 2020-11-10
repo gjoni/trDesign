@@ -99,7 +99,7 @@ def get_bkg(L, DB_DIR=".", sample=1):
     weights = load_weights(f"{DB_DIR}/bkgr_models/bkgr0{w}.npy")
     bkg_model.set_weights(weights)
     for l in L:
-      bkg[l].append(bkg_model.predict([l]).mean(0))
+      bkg[l].append(bkg_model.predict([l] * sample).mean(0))
   return {l:np.mean(bkg[l],axis=0) for l in L}
 
 ##############################################################################
