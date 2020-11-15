@@ -110,8 +110,8 @@ class mk_design_model:
   # DO SETUP
   ###############################################################################
   def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
-               add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, serial=False, diag=0.4,
-               pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
+               add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
+               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
     self.sample,self.serial = sample,serial
@@ -176,7 +176,10 @@ class mk_design_model:
     # output features
     ################################
     self.models = []
-    for token in ["xaa","xab","xac","xad","xae"][:n_models]:
+    tokens = np.array(["xaa","xab","xac","xad","xae"])
+    if specific_models is None:
+      specific_models = np.arange(n_models)
+    for token in tokens[specific_models]:
       # load weights (for serial mode) or all models (for parallel mode)
       print(f"loading model: {token}")
       weights = load_weights(f"{DB_DIR}/models/model_{token}.npy")
