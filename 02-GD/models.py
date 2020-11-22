@@ -148,7 +148,7 @@ class mk_design_model:
         y_soft_sampled = tf.nn.softmax(y_logits-tf.math.log(-tf.math.log(U+eps)+eps))
         y_soft = K.switch(train, y_soft_sampled, tf.nn.softmax(y_logits,-1))
       else:
-        y_soft = tf.nn.softmax(y,-1)
+        y_soft = tf.nn.softmax(y_logits,-1)
         
       y_hard = tf.one_hot(tf.argmax(y_soft,-1),20)          # argmax
       y_hard = tf.stop_gradient(y_hard-y_soft)+y_soft       # gradient bypass
@@ -312,7 +312,7 @@ class mk_design_model:
         mt = b1*mt + (1-b1)*p["grad"]
         vt = b2*vt + (1-b2)*np.square(p["grad"]).sum((-1,-2),keepdims=True)
         p["grad"] = mt/(np.sqrt(vt) + 1e-8)
-        lr = opt_rate
+        lr = opt_rate * np.sqrt(1-np.power(b2,k+1))/(1-np.power(b1,k+1))
 
       # update
       inputs["I"] -= lr * p["grad"]
