@@ -140,29 +140,31 @@ class mk_design_model:
     # input features
     ################################
     def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    def argmax(y):
+    def argmax(y_logits):
+      
       if sample:
         # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
-        U = tf.random.uniform(tf.shape(y),minval=0,maxval=1)
-        y_pssm_sampled = tf.nn.softmax(y-tf.math.log(-tf.math.log(U+eps)+eps))
-        y_pssm = K.switch(train, y_pssm_sampled, tf.nn.softmax(y,-1))
+        U = tf.random.uniform(tf.shape(y_logits),minval=0,maxval=1)
+        y_soft_sampled = tf.nn.softmax(y_logits-tf.math.log(-tf.math.log(U+eps)+eps))
+        y_soft = K.switch(train, y_soft_sampled, tf.nn.softmax(y_logits,-1))
       else:
-        y_pssm = tf.nn.softmax(y,-1)
-      y_seq = tf.one_hot(tf.argmax(y_pssm,-1),20)          # argmax
-      y_seq = tf.stop_gradient(y_seq-y_pssm)+y_pssm        # gradient bypass
-      return y_pssm, y_seq
+        y_soft = tf.nn.softmax(y,-1)
+        
+      y_hard = tf.one_hot(tf.argmax(y_soft,-1),20)          # argmax
+      y_hard = tf.stop_gradient(y_hard-y_soft)+y_soft       # gradient bypass
+      return y_soft, y_hard
 
-    I_pssm, I_seq = argmax(I)
+    I_soft, I_hard = argmax(I)
     # configuring input
     if msa_design:
       print("mode: msa design")
-      I_feat = MRF(lid=lid,uid=uid)(add_gap(I_seq))
+      I_feat = MRF(lid=lid,uid=uid)(add_gap(I_hard))
     elif pssm_design:
         print("mode: pssm design")
-        I_feat = PSSM(diag=diag)([I_seq,add_gap(I_pssm)])
+        I_feat = PSSM(diag=diag)([I_hard,add_gap(I_soft)])
     else:
       print("mode: single sequence design")
-      I_feat = PSSM(diag=diag)([I_seq,add_gap(I_seq)])
+      I_feat = PSSM(diag=diag)([I_hard,add_gap(I_hard)])
 
     # add dropout to features
     if self.feat_drop > 0:
@@ -179,12 +181,14 @@ class mk_design_model:
     tokens = np.array(["xaa","xab","xac","xad","xae"])
     if specific_models is None:
       specific_models = np.arange(n_models)
+      
     for token in tokens[specific_models]:
       # load weights (for serial mode) or all models (for parallel mode)
       print(f"loading model: {token}")
       weights = load_weights(f"{DB_DIR}/models/model_{token}.npy")
       if self.serial: self.models.append(weights)
       else: self.models.append(RESNET(weights=weights, mode="TrR")(I_feat))
+        
     if self.serial: O_feat = RESNET(mode="TrR")(I_feat)
     else: O_feat = tf.reduce_mean(self.models,0)
 
@@ -198,8 +202,8 @@ class mk_design_model:
 
     # cross-entropy loss for fixed backbone design
     if add_pdb:
-      pdb_loss = -0.25*K.sum(pdb*K.log(O_feat+eps),-1)
-      add_loss(K.mean(pdb_loss,[-1,-2]),"pdb")
+      pdb_loss = -K.sum(pdb*K.log(O_feat+eps),-1)
+      add_loss(K.sum(pdb_loss,[-1,-2])/K.sum(pdb,[-1,-2,-3]),"pdb")
 
     # kl loss for hallucination
     if add_bkg:
@@ -208,26 +212,26 @@ class mk_design_model:
       
     # add sequence constraint
     if add_seq_cst:
-      seq_cst_loss = -K.sum(seq_cst*K.log(I_pssm + eps),-1)
+      seq_cst_loss = -K.sum(seq_cst * K.log(I_soft + eps),-1)
       add_loss(K.mean(seq_cst_loss,[-1,-2]),"seq_cst")
 
     # amino acid composition loss
     if add_aa_ref:
       # experimental
       aa = tf.constant(AA_REF, dtype=tf.float32)
-      I_soft = tf.nn.softmax(I,axis=-1)
       aa_loss = K.sum(K.mean(I_soft*aa,[-2,-3]),-1)
       add_loss(aa_loss,"aa")
+
     elif add_aa_comp:
       # experimental
       aa = tf.constant(AA_COMP, dtype=tf.float32)
-      I_soft = tf.nn.softmax(I,axis=-1)
       aa_loss = K.sum(I_soft*K.log(I_soft/(aa+eps)+eps),-1)
       add_loss(K.mean(aa_loss,[-1,-2]),"aa")
+      
     elif add_aa_comp_old:
       # ivan's original AA comp loss (from hallucination paper)
       aa = tf.constant(AA_COMP, dtype=tf.float32)
-      I_aa = K.mean(I_seq,-2) # mean over length
+      I_aa = K.mean(I_hard,-2) # mean over length
       aa_loss = K.sum(I_aa*K.log(I_aa/(aa+eps)+eps),-1)
       add_loss(K.mean(aa_loss,-1),"aa")
 
@@ -242,11 +246,11 @@ class mk_design_model:
       ################################
       # define model
       ################################
-      self.out_label = ["grad","loss","feat","pssm"]
-      outputs = [grad,loss,O_feat,I_pssm]
+      self.out_label = ["grad","loss","feat"]
+      outputs = [grad,loss,O_feat]
     else:
-      self.out_label = ["feat","pssm"]
-      outputs = [O_feat,I_pssm]
+      self.out_label = ["feat"]
+      outputs = [O_feat]
       
     self.model = Model(inputs, outputs)
 
@@ -263,7 +267,7 @@ class mk_design_model:
     # define length
     if   "pdb" in inputs: L = inputs["pdb"].shape[-2]
     elif "bkg" in inputs: L = inputs["bkg"].shape[-2]
-    elif "I"   in inputs: L = inputs["I"].shape[-2]
+    elif "I" in inputs: L = inputs["I"].shape[-2]
 
     # initialize
     if "I" not in inputs or inputs["I"] is None:
@@ -322,12 +326,12 @@ class mk_design_model:
     if self.feat_drop == 0 and self.sample == False:
       inputs["I"] = best_I
     p = self.predict(inputs, weights=weights, train=False)
-    feat, I_pssm  = p["feat"][0], p["pssm"][0]
+    feat          = p["feat"][0]
     loss          = to_dict(self.loss_label, p["loss"][0])
     loss_str      = str(loss).replace(" ","")
     print(f"FINAL loss:{loss_str}")
 
-    return {"loss":loss, "feat":feat, "I":best_I[0], "I_pssm":I_pssm,
+    return {"loss":loss, "feat":feat, "I":best_I[0],
             "losses":losses, "traj":traj}
 
   ###############################################################################
