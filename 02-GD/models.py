@@ -310,7 +310,7 @@ class mk_design_model:
       # ADAM optimizer
       if opt_method == "ADAM":
         mt = b1*mt + (1-b1)*p["grad"]
-        vt = b2*vt + (1-b2)*np.square(p["grad"]).sum((-1,-2),keepdims=True)
+        vt = b2*vt + (1-b2)*np.square(p["grad"]) #.sum((-1,-2),keepdims=True)
         p["grad"] = mt/(np.sqrt(vt) + 1e-8)
         lr = opt_rate * np.sqrt(1-np.power(b2,k+1))/(1-np.power(b1,k+1))
 
