@@ -319,20 +319,16 @@ class mk_design_model:
 
       # report loss
       if verbose and (k+1) % 10 == 0:
-        loss_str = str(to_dict(self.loss_label, p["loss"][0])).replace(" ","")
-        print(f"{k+1} loss:{loss_str}")
+        loss = to_dict(self.loss_label, p["loss"][0])
+        print(f"{k+1} loss:"+str(loss).replace(' ',''))
 
     # recompute output
-    if self.feat_drop == 0 and self.sample == False:
-      inputs["I"] = best_I
+    if self.feat_drop == 0 and self.sample == False: inputs["I"] = best_I
     p = self.predict(inputs, weights=weights, train=False)
     feat          = p["feat"][0]
     loss          = to_dict(self.loss_label, p["loss"][0])
-    loss_str      = str(loss).replace(" ","")
-    print(f"FINAL loss:{loss_str}")
-
-    return {"loss":loss, "feat":feat, "I":best_I[0],
-            "losses":losses, "traj":traj}
+    print("FINAL loss:"+str(loss).replace(' ',''))
+    return {"loss":loss, "feat":feat, "I":best_I[0], "losses":losses, "traj":traj}
 
   ###############################################################################
   def predict(self, inputs, weights=None, train=True):
@@ -349,9 +345,12 @@ class mk_design_model:
         self.model.set_weights(model_weights)
         for n,o in enumerate(self.model.predict(inputs_list)):
           preds[n].append(o)
-      return to_dict(self.out_label, [np.mean(pred,0) for pred in preds])
+      outputs =  to_dict(self.out_label, [np.mean(pred,0) for pred in preds])
     else:
-      return to_dict(self.out_label, self.model.predict(inputs_list))
+      outputs = to_dict(self.out_label, self.model.predict(inputs_list))
+      
+    outputs["I"] = inputs["I"]
+    return outputs
   ###############################################################################
 
 ##################################################################################
