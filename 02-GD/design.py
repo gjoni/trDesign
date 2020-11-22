@@ -186,7 +186,7 @@ def save_result(out, pre, o):
         fas.write(f">{pre}_{n}\n{seq}\n")
   # save PSSM
   if o.pssm_design:
-    np.savetxt(f"{pre}.pssm.txt",out["I_pssm"][0], fmt='%.6f')
+    np.savetxt(f"{pre}.pssm.txt",out["I"][0], fmt='%.6f')
   return line
 #################################################################################
 if __name__ == "__main__":
