@@ -135,26 +135,14 @@ class mk_design_model:
 
     loss_weights = add_input((None,),"loss_weights")
     train = add_input([],"train",tf.bool)[0]
+    temp = add_input([],"temp",tf.float32)[0]
+    hard = add_input([],"hard",tf.bool)[0]
 
     ################################
     # input features
     ################################
     def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    def argmax(y_logits):
-      
-      if sample:
-        # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
-        U = tf.random.uniform(tf.shape(y_logits),minval=0,maxval=1)
-        y_soft_sampled = tf.nn.softmax(y_logits-tf.math.log(-tf.math.log(U+eps)+eps))
-        y_soft = K.switch(train, y_soft_sampled, tf.nn.softmax(y_logits,-1))
-      else:
-        y_soft = tf.nn.softmax(y_logits,-1)
-        
-      y_hard = tf.one_hot(tf.argmax(y_soft,-1),20)          # argmax
-      y_hard = tf.stop_gradient(y_hard-y_soft)+y_soft       # gradient bypass
-      return y_soft, y_hard
-
-    I_soft, I_hard = argmax(I)
+    I_soft, I_hard = categorical(I, temp=temp, sample=sample, train=train, hard=hard)
     # configuring input
     if msa_design:
       print("mode: msa design")
@@ -260,6 +248,7 @@ class mk_design_model:
   def design(self, inputs, weights=None, num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
+             temp_ini=1.0, temp_decay=0.0, temp_min=0.5, hard=True, hard_switch=100,
              return_traj=False, shuf=True):
     
     if weights is None: weights = {}
@@ -282,13 +271,18 @@ class mk_design_model:
     
     # optimize
     for k in range(opt_iter):
+      
+      # temperature for softmax gumbel
+      if k == hard_switch: hard = True
+      temp = np.maximum(temp_ini*np.exp(-temp_decay*(k+1)),temp_min)
+      
       # permute input (for msa_design)
       if shuf and num > 0:
         idx = np.random.permutation(np.arange(inputs["I"].shape[1]))
         inputs["I"] = inputs["I"][:,idx]
 
       # compute loss/gradient
-      p = self.predict(inputs,weights=weights)
+      p = self.predict(inputs, weights=weights, temp=temp, hard=hard)
       tot_loss = np.sum(p["loss"])
       losses.append(tot_loss)
       if return_traj: traj.append(p)
@@ -331,12 +325,14 @@ class mk_design_model:
     return {"loss":loss, "feat":feat, "I":best_I[0], "losses":losses, "traj":traj}
 
   ###############################################################################
-  def predict(self, inputs, weights=None, train=True):
+  def predict(self, inputs, weights=None, train=True, temp=1.0, hard=True):
     if weights is None: weights = {}
     # prep inputs
     weights_list = to_list(self.loss_label, weights, 1)
-    inputs["loss_weights"] = np.array(weights_list)[None]
-    inputs["train"] = np.array([train])
+    inputs.update({"loss_weights":np.array(weights_list)[None],
+                   "train":np.array([train]),
+                   "temp":np.array([temp]),
+                   "hard":np.array([hard])})
     inputs_list = to_list(self.in_label, inputs)
 
     if self.serial:
@@ -465,3 +461,22 @@ class PSSM(Layer):
 
     feat = tf.concat([feat_1D_tile_A, feat_1D_tile_B, feat_2D],axis=-1)
     return tf.reshape(feat, [1,L,L,442+2*42])
+
+def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
+  # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
+  def sample_gumbel(shape, eps=1e-20):
+    U = tf.random.uniform(shape,minval=0,maxval=1)
+    return -tf.math.log(-tf.math.log(U + eps) + eps)
+  
+  def gumbel_softmax_sample(logits): 
+    y = logits + sample_gumbel(tf.shape(logits))
+    return tf.nn.softmax(y/temp,-1)
+
+  y_soft = tf.nn.softmax(y_logits/temp,-1)
+  if sample:
+    y_soft = K.switch(train, gumbel_softmax_sample(y_logits), y_soft)
+  else:
+    y_hard = tf.one_hot(tf.argmax(y_soft,-1),tf.shape(y_soft)[-1])  # argmax
+    y_hard = tf.stop_gradient(y_hard-y_soft)+y_soft                 # gradient bypass
+    y_hard = K.switch(hard, y_hard, y_soft)
+  return y_soft, y_hard
