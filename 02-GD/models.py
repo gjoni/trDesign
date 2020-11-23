@@ -111,7 +111,7 @@ class mk_design_model:
   ###############################################################################
   def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
                add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
-               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
+               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
     self.sample,self.serial = sample,serial
@@ -135,14 +135,15 @@ class mk_design_model:
 
     loss_weights = add_input((None,),"loss_weights")
     train = add_input([],"train",tf.bool)[0]
-    temp = add_input([],"temp",tf.float32)[0]
+    sample = add_input([],"sample",tf.bool)[0]
     hard = add_input([],"hard",tf.bool)[0]
+    temp = add_input([],"temp",tf.float32)[0]
 
     ################################
     # input features
     ################################
     def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    I_soft, I_hard = categorical(I, temp=temp, sample=sample, train=train, hard=hard)
+    I_soft, I_hard = categorical(I, temp=temp, hard=hard)
     # configuring input
     if msa_design:
       print("mode: msa design")
@@ -250,6 +251,7 @@ class mk_design_model:
              opt_rate=1.0, opt_decay=2.0, verbose=True,
              temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
              hard=True, hard_switch=None,
+             sample=False, sample_switch=None,
              return_traj=False, shuf=True):
     
     if weights is None: weights = {}
@@ -266,15 +268,16 @@ class mk_design_model:
       inputs["I"][...,rm_aa] = -1e9
 
     losses, traj = [],[]
-    best_loss, best_I = np.inf,None
+    #best_loss, best_I = np.inf,None
     inputs["I"] += np.random.normal(0,0.01,size=inputs["I"].shape)
     mt,vt = 0,0
     
     # optimize
     for k in range(opt_iter):
       
-      # temperature for softmax gumbel
-      if k == hard_switch: hard = True
+      # softmax gumbel controls
+      if k in hard_switch: hard = (hard == False)
+      if k in sample_switch: sample = (sample == False)
       temp = np.maximum(temp_ini*np.exp(-temp_decay*(k+1)),temp_min)
       
       # permute input (for msa_design)
@@ -283,14 +286,14 @@ class mk_design_model:
         inputs["I"] = inputs["I"][:,idx]
 
       # compute loss/gradient
-      p = self.predict(inputs, weights=weights, temp=temp, hard=hard)
+      p = self.predict(inputs, weights=weights, sample=sample, temp=temp, hard=hard, train=True)
       tot_loss = np.sum(p["loss"])
       losses.append(tot_loss)
       if return_traj: traj.append(p)
 
       # save best result
-      if hard and tot_loss < best_loss:
-        best_loss, best_I = tot_loss, np.copy(inputs["I"])
+      #if tot_loss < best_loss:
+      #  best_loss, best_I = tot_loss, np.copy(inputs["I"])
 
       # GD optimizer
       if opt_method == "GD":
@@ -315,25 +318,27 @@ class mk_design_model:
       # report loss
       if verbose and (k+1) % 10 == 0:
         loss = to_dict(self.loss_label, p["loss"][0])
-        print(f"{k+1} loss:"+str(loss).replace(' ',''))
+        print(f"{k+1} loss:"+str(loss).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
 
     # recompute output
-    if self.feat_drop == 0 and self.sample == False: inputs["I"] = best_I
-    p = self.predict(inputs, weights=weights, train=False)
+    # if self.feat_drop == 0 and self.sample == False: inputs["I"] = best_I
+    p = self.predict(inputs, weights=weights)
     feat          = p["feat"][0]
     loss          = to_dict(self.loss_label, p["loss"][0])
     print("FINAL loss:"+str(loss).replace(' ',''))
     return {"loss":loss, "feat":feat, "I":best_I[0], "losses":losses, "traj":traj}
 
   ###############################################################################
-  def predict(self, inputs, weights=None, train=True, temp=1.0, hard=True):
+  def predict(self, inputs, weights=None, sample=False, hard=True, temp=1.0, train=True):
     if weights is None: weights = {}
     # prep inputs
     weights_list = to_list(self.loss_label, weights, 1)
     inputs.update({"loss_weights":np.array(weights_list)[None],
-                   "train":np.array([train]),
+                   "sample":np.array([sample]),
+                   "hard":np.array([hard]),
                    "temp":np.array([temp]),
-                   "hard":np.array([hard])})
+                   "train":np.array([train])
+                  })
     inputs_list = to_list(self.in_label, inputs)
 
     if self.serial:
@@ -465,6 +470,7 @@ class PSSM(Layer):
 
 def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
   # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
+
   def sample_gumbel(shape, eps=1e-20):
     U = tf.random.uniform(shape,minval=0,maxval=1)
     return -tf.math.log(-tf.math.log(U + eps) + eps)
@@ -473,8 +479,11 @@ def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
     y = logits + sample_gumbel(tf.shape(logits))
     return tf.nn.softmax(y/temp,-1)
   
+  def onehot(x):
+    y = tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])  # argmax
+    return tf.stop_gradient(y-x)+x                   # gradient bypass
+  
   y_soft = tf.nn.softmax(y_logits/temp,-1)  
-  if sample: y_soft = K.switch(train, gumbel_softmax_sample(y_logits), y_soft)    
-  y_hard = tf.one_hot(tf.argmax(y_logits,-1),tf.shape(y_logits)[-1])  # argmax
-  y_hard = tf.stop_gradient(y_hard-y_soft)+y_soft                     # gradient bypass
-  return y_soft, K.switch(hard, y_hard, y_soft)
+  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
+  y_hard = K.switch(hard, one_hot(y_soft), y_soft)
+  return y_soft, y_hard
