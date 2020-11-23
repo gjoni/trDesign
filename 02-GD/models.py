@@ -493,7 +493,7 @@ def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
     y = tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])  # argmax
     return tf.stop_gradient(y-x)+x                   # gradient bypass
   
-  y_soft = tf.nn.softmax(y_logits/temp,-1)  
-  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
-  y_hard = K.switch(hard, one_hot(y_soft), y_soft)
+  y = tf.nn.softmax(y_logits/temp,-1)  
+  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y)    
+  y_hard = K.switch(hard, one_hot(y), y)
   return y_soft, y_hard
