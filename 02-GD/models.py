@@ -122,7 +122,7 @@ class mk_design_model:
     K1.set_session(tf1.Session(config=config))
 
     # configure inputs
-    self.in_label,inputs = [],[],[]
+    self.in_label,inputs = [],[]
     def add_input(shape, label, dtype=tf.float32):
       inputs.append(Input(shape, batch_size=1, dtype=dtype))
       self.in_label.append(label)
