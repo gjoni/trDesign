@@ -330,7 +330,7 @@ class mk_design_model:
     feat          = p["feat"][0]
     loss          = to_dict(self.loss_label, p["loss"][0])
     print("FINAL loss:"+str(loss).replace(' ',''))
-    return {"loss":loss, "feat":feat, "I":best_I[0], "losses":losses, "traj":traj}
+    return {"loss":loss, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
 
   ###############################################################################
   def predict(self, inputs, weights=None, sample=False, hard=True, temp=1.0, train=True):
