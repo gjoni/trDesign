@@ -112,7 +112,7 @@ class mk_design_model:
   def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
                add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
                serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
-               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False):
+               DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
     self.sample,self.serial = sample,serial
     self.feat_drop = feat_drop
@@ -142,7 +142,7 @@ class mk_design_model:
     # input features
     ################################
     def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    I_soft, I_hard = categorical(I, temp=temp, sample=sample, train=train, hard=hard, test=test)
+    I_soft, I_hard = categorical(I, temp=temp, sample=sample, train=train, hard=hard)
     # configuring input
     if msa_design:
       print("mode: msa design")
@@ -250,7 +250,7 @@ class mk_design_model:
              opt_rate=1.0, opt_decay=2.0, verbose=True,
              temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
              hard=True, hard_switch=None,
-             return_traj=False, shuf=True):
+             return_traj=False, return_loss_traj=False, shuf=True):
     
     if weights is None: weights = {}
 
@@ -287,6 +287,7 @@ class mk_design_model:
       tot_loss = np.sum(p["loss"])
       losses.append(tot_loss)
       if return_traj: traj.append(p)
+      if return_loss_traj: traj.append(p["loss"][0])
 
       # save best result
       if hard and tot_loss < best_loss:
@@ -463,7 +464,7 @@ class PSSM(Layer):
     feat = tf.concat([feat_1D_tile_A, feat_1D_tile_B, feat_2D],axis=-1)
     return tf.reshape(feat, [1,L,L,442+2*42])
 
-def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True, test=False):
+def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
   # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
   def sample_gumbel(shape, eps=1e-20):
     U = tf.random.uniform(shape,minval=0,maxval=1)
@@ -471,16 +472,9 @@ def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True, test=F
   
   def gumbel_softmax_sample(logits): 
     y = logits + sample_gumbel(tf.shape(logits))
-    if test:
-      return y/temp
-    else:
-      return tf.nn.softmax(y/temp,-1)
+    return tf.nn.softmax(y/temp,-1)
   
-  if test:
-    y_soft = y_logits/temp
-  else:
-    y_soft = tf.nn.softmax(y_logits/temp,-1)
-    
+  y_soft = tf.nn.softmax(y_logits/temp,-1)  
   if sample: y_soft = K.switch(train, gumbel_softmax_sample(y_logits), y_soft)    
   y_hard = tf.one_hot(tf.argmax(y_logits,-1),tf.shape(y_logits)[-1])  # argmax
   y_hard = tf.stop_gradient(y_hard-y_soft)+y_soft                     # gradient bypass
