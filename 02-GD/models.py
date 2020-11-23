@@ -208,13 +208,15 @@ class mk_design_model:
     if add_aa_ref:
       # experimental
       aa = tf.constant(AA_REF, dtype=tf.float32)
-      aa_loss = K.sum(K.mean(I_soft*aa,[-2,-3]),-1)
+      I_prob = tf.nn.softmax(I,-1)
+      aa_loss = K.sum(K.mean(I_prob*aa,[-2,-3]),-1)
       add_loss(aa_loss,"aa")
 
     elif add_aa_comp:
       # experimental
       aa = tf.constant(AA_COMP, dtype=tf.float32)
-      aa_loss = K.sum(I_soft*K.log(I_soft/(aa+eps)+eps),-1)
+      I_prob = tf.nn.softmax(I,-1)
+      aa_loss = K.sum(I_prob*K.log(I_prob/(aa+eps)+eps),-1)
       add_loss(K.mean(aa_loss,[-1,-2]),"aa")
       
     elif add_aa_comp_old:
