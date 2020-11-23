@@ -256,9 +256,9 @@ class mk_design_model:
              sample=False, sample_switch=None,
              return_traj=False, shuf=True):
     
-    weights = {} if weights is None
-    hard_switch = [] if hard_switch is None
-    sample_switch = [] if sample_switch is None
+    if weights is None: weights = {} 
+    if hard_switch is None: hard_switch = []
+    if sample_switch is None: sample_switch = []
 
     # define length
     if   "pdb" in inputs: L = inputs["pdb"].shape[-2]
