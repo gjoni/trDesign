@@ -251,7 +251,7 @@ class mk_design_model:
   def design(self, inputs, weights=None, num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
-             temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
+             temp_decay=2., temp_min=1.0, temp_max=1.0,
              hard=True, hard_switch=None,
              sample=False, sample_switch=None,
              return_traj=False, shuf=True, recompute_loss=False):
@@ -282,7 +282,7 @@ class mk_design_model:
       # softmax gumbel controls
       if k in hard_switch: hard = (hard == False)
       if k in sample_switch: sample = (sample == False)
-      temp = np.maximum(temp_ini*np.exp(-temp_decay*(k+1)),temp_min)
+      temp = temp_min + (temp_max-temp_min) * np.power(1 - k/opt_iter, temp_decay)
       
       # permute input (for msa_design)
       if shuf and num > 0:
