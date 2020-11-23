@@ -294,10 +294,12 @@ class mk_design_model:
       
       if recompute_loss:
         q = self.predict(inputs, weights=weights)
-        losses.append(np.sum(q["loss"]))
+        loss = q["loss"]
+        losses.append(np.sum(loss))
         if return_traj: traj.append(q)
       else:
-        losses.append(np.sum(p["loss"]))
+        loss = p["loss"]
+        losses.append(np.sum(loss))
         if return_traj: traj.append(p)
 
       # save best result
@@ -326,16 +328,16 @@ class mk_design_model:
 
       # report loss
       if verbose and (k+1) % 10 == 0:
-        loss = to_dict(self.loss_label, p["loss"][0])
-        print(f"{k+1} loss:"+str(loss).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
+        loss_ = to_dict(self.loss_label, loss[0])
+        print(f"{k+1} loss:"+str(loss_).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
 
     # recompute output
     # if self.feat_drop == 0 and self.sample == False: inputs["I"] = best_I
     p = self.predict(inputs, weights=weights)
     feat          = p["feat"][0]
-    loss          = to_dict(self.loss_label, p["loss"][0])
+    loss_         = to_dict(self.loss_label, p["loss"][0])
     print("FINAL loss:"+str(loss).replace(' ',''))
-    return {"loss":loss, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
+    return {"loss":loss_, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
 
   ###############################################################################
   def predict(self, inputs, weights=None, sample=False, hard=True, temp=1.0, train=True):
@@ -343,10 +345,10 @@ class mk_design_model:
     # prep inputs
     weights_list = to_list(self.loss_label, weights, 1)
     inputs["loss_weights"] = np.array([weights_list])
-    inputs["sample"] = np.array([sample])
-    inputs["hard"] = np.array([hard])
-    inputs["temp"] = np.array([temp])
-    inputs["train"] = np.array([train])
+    inputs["sample"]       = np.array([sample])
+    inputs["hard"]         = np.array([hard])
+    inputs["temp"]         = np.array([temp])
+    inputs["train"]        = np.array([train])
     inputs_list = to_list(self.in_label, inputs)
 
     if self.serial:
