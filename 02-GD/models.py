@@ -249,7 +249,7 @@ class mk_design_model:
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
              temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
-             hard=True, hard_switch=None,
+             hard=True, hard_switch=None, test=False,
              return_traj=False, shuf=True):
     
     if weights is None: weights = {}
@@ -463,7 +463,7 @@ class PSSM(Layer):
     feat = tf.concat([feat_1D_tile_A, feat_1D_tile_B, feat_2D],axis=-1)
     return tf.reshape(feat, [1,L,L,442+2*42])
 
-def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
+def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True, test=False):
   # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
   def sample_gumbel(shape, eps=1e-20):
     U = tf.random.uniform(shape,minval=0,maxval=1)
@@ -471,9 +471,16 @@ def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
   
   def gumbel_softmax_sample(logits): 
     y = logits + sample_gumbel(tf.shape(logits))
-    return tf.nn.softmax(y/temp,-1)
-
-  y_soft = tf.nn.softmax(y_logits/temp,-1)
+    if test:
+      return y/temp
+    else
+      return tf.nn.softmax(y/temp,-1)
+  
+  if test:
+    y_soft = y_logits/temp
+  else:
+    y_soft = tf.nn.softmax(y_logits/temp,-1)
+    
   if sample: y_soft = K.switch(train, gumbel_softmax_sample(y_logits), y_soft)    
   y_hard = tf.one_hot(tf.argmax(y_logits,-1),tf.shape(y_logits)[-1])  # argmax
   y_hard = tf.stop_gradient(y_hard-y_soft)+y_soft                     # gradient bypass
