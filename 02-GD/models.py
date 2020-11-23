@@ -143,7 +143,7 @@ class mk_design_model:
     # input features
     ################################
     def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    I_soft, I_hard = categorical(I, temp=temp, hard=hard)
+    I_soft, I_hard = categorical(I, temp=temp, hard=hard, sample=sample)
     # configuring input
     if msa_design:
       print("mode: msa design")
