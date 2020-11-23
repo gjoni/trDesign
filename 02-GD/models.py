@@ -112,7 +112,7 @@ class mk_design_model:
   def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
                add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
                serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, sample=False,
-               DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
+               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False):
 
     self.sample,self.serial = sample,serial
     self.feat_drop = feat_drop
@@ -142,7 +142,7 @@ class mk_design_model:
     # input features
     ################################
     def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    I_soft, I_hard = categorical(I, temp=temp, sample=sample, train=train, hard=hard)
+    I_soft, I_hard = categorical(I, temp=temp, sample=sample, train=train, hard=hard, test=test)
     # configuring input
     if msa_design:
       print("mode: msa design")
@@ -249,7 +249,7 @@ class mk_design_model:
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
              temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
-             hard=True, hard_switch=None, test=False,
+             hard=True, hard_switch=None,
              return_traj=False, shuf=True):
     
     if weights is None: weights = {}
