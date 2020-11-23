@@ -254,7 +254,7 @@ class mk_design_model:
              temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
              hard=True, hard_switch=None,
              sample=False, sample_switch=None,
-             return_traj=False, shuf=True):
+             return_traj=False, shuf=True, recompute_loss=False):
     
     if weights is None: weights = {} 
     if hard_switch is None: hard_switch = []
@@ -291,9 +291,14 @@ class mk_design_model:
 
       # compute loss/gradient
       p = self.predict(inputs, weights=weights, sample=sample, temp=temp, hard=hard, train=True)
-      tot_loss = np.sum(p["loss"])
-      losses.append(tot_loss)
-      if return_traj: traj.append(p)
+      
+      if recompute_loss:
+        q = self.predict(inputs, weights=weights)
+        losses.append(np.sum(q["loss"]))
+        if return_traj: traj.append(q)
+      else:
+        losses.append(np.sum(p["loss"]))
+        if return_traj: traj.append(p)
 
       # save best result
       #if tot_loss < best_loss:
