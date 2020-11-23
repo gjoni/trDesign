@@ -479,7 +479,7 @@ def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
     y = logits + sample_gumbel(tf.shape(logits))
     return tf.nn.softmax(y/temp,-1)
   
-  def onehot(x):
+  def one_hot(x):
     y = tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])  # argmax
     return tf.stop_gradient(y-x)+x                   # gradient bypass
   
