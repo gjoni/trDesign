@@ -250,7 +250,7 @@ class mk_design_model:
              opt_rate=1.0, opt_decay=2.0, verbose=True,
              temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
              hard=True, hard_switch=None,
-             return_traj=False, return_loss_traj=False, shuf=True):
+             return_traj=False, shuf=True):
     
     if weights is None: weights = {}
 
@@ -287,7 +287,6 @@ class mk_design_model:
       tot_loss = np.sum(p["loss"])
       losses.append(tot_loss)
       if return_traj: traj.append(p)
-      if return_loss_traj: traj.append(p["loss"][0])
 
       # save best result
       if hard and tot_loss < best_loss:
