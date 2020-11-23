@@ -114,7 +114,7 @@ class mk_design_model:
                serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
-    self.sample,self.serial = sample,serial
+    self.serial = serial
     self.feat_drop = feat_drop
 
     # reset graph
@@ -134,10 +134,10 @@ class mk_design_model:
     if add_seq_cst: seq_cst = add_input((None,20),"seq_cst")
 
     loss_weights = add_input((None,),"loss_weights")
-    train = add_input([],"train",tf.bool)[0]
     sample = add_input([],"sample",tf.bool)[0]
     hard = add_input([],"hard",tf.bool)[0]
     temp = add_input([],"temp",tf.float32)[0]
+    train = add_input([],"train",tf.bool)[0]
 
     ################################
     # input features
