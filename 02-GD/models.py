@@ -122,11 +122,11 @@ class mk_design_model:
     K1.set_session(tf1.Session(config=config))
 
     # configure inputs
-    self.in_label,inputs = [],[]
+    self.in_label,inputs = [],[],[]
     def add_input(shape, label, dtype=tf.float32):
       inputs.append(Input(shape, batch_size=1, dtype=dtype))
       self.in_label.append(label)
-      return inputs[-1]
+      return inputs[-1][0] if len(shape) == 0 else inputs[-1]
 
     I = add_input((None,None,20),"I")
     if add_pdb: pdb = add_input((None,None,100),"pdb")
@@ -134,10 +134,10 @@ class mk_design_model:
     if add_seq_cst: seq_cst = add_input((None,20),"seq_cst")
 
     loss_weights = add_input((None,),"loss_weights")
-    sample = add_input([],"sample",tf.bool)[0]
-    hard = add_input([],"hard",tf.bool)[0]
-    temp = add_input([],"temp",tf.float32)[0]
-    train = add_input([],"train",tf.bool)[0]
+    sample = add_input([],"sample",tf.bool)
+    hard = add_input([],"hard",tf.bool)
+    temp = add_input([],"temp",tf.float32)
+    train = add_input([],"train",tf.bool)
 
     ################################
     # input features
@@ -254,7 +254,9 @@ class mk_design_model:
              sample=False, sample_switch=None,
              return_traj=False, shuf=True):
     
-    if weights is None: weights = {}
+    weights = {} if weights is None
+    hard_switch = [] if hard_switch is None
+    sample_switch = [] if sample_switch is None
 
     # define length
     if   "pdb" in inputs: L = inputs["pdb"].shape[-2]
@@ -333,12 +335,11 @@ class mk_design_model:
     if weights is None: weights = {}
     # prep inputs
     weights_list = to_list(self.loss_label, weights, 1)
-    inputs.update({"loss_weights":np.array(weights_list)[None],
-                   "sample":np.array([sample]),
-                   "hard":np.array([hard]),
-                   "temp":np.array([temp]),
-                   "train":np.array([train])
-                  })
+    inputs["loss_weights"] = np.array([weights_list])
+    inputs["sample"] = np.array([sample])
+    inputs["hard"] = np.array([hard])
+    inputs["temp"] = np.array([temp])
+    inputs["train"] = np.array([train])
     inputs_list = to_list(self.in_label, inputs)
 
     if self.serial:
