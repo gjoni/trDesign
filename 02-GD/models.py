@@ -248,7 +248,8 @@ class mk_design_model:
   def design(self, inputs, weights=None, num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
-             temp_ini=1.0, temp_decay=0.0, temp_min=0.5, hard=True, hard_switch=100,
+             temp_ini=1.0, temp_decay=0.0, temp_min=0.5,
+             hard=True, hard_switch=None,
              return_traj=False, shuf=True):
     
     if weights is None: weights = {}
@@ -288,7 +289,7 @@ class mk_design_model:
       if return_traj: traj.append(p)
 
       # save best result
-      if tot_loss < best_loss:
+      if hard and tot_loss < best_loss:
         best_loss, best_I = tot_loss, np.copy(inputs["I"])
 
       # GD optimizer
