@@ -473,7 +473,7 @@ def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True, test=F
     y = logits + sample_gumbel(tf.shape(logits))
     if test:
       return y/temp
-    else
+    else:
       return tf.nn.softmax(y/temp,-1)
   
   if test:
