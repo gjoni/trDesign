@@ -62,7 +62,9 @@ def main(argv):
   ag.add(["opt_iter="],   100,   int,   ["number of iterations"])
   ag.add(["opt_adam"],    False, None,  ["use ADAM optimizer"])
   ag.add(["opt_decay"],   False, None,  ["use GD+Decay optimizer"])
-  ag.add(["opt_sample"],  False, None,  ["sample from PSSM instead of taking argmax of PSSM"])
+  ag.add(["opt_sample"],  False, None,  ["sample from logits"])
+  ag.add(["opt_soft"],    True,  None,  ["disable argmax during optimization",
+                                         "only use this option in combination with --opt_sample"])
   ag.add(["serial"],      False, None,  ["enable approx. serial mode"])
   ag.add(["n_models="],   5,     int,   ["number of TrRosetta models to load into memory"])
   ag.txt("-------------------------------------------------------------------------------------")
@@ -74,11 +76,12 @@ def main(argv):
     ag.usage(f"ERROR: --pdb={o.pdb} or --len={o.len} must be defined")
 
   # configure params
-  s_inputs = {"sample":o.opt_sample, "n_models":o.n_models, "feat_drop":o.feat_drop,
+  s_inputs = {"n_models":o.n_models, "feat_drop":o.feat_drop,
               "pssm_design":o.pssm_design, "serial":o.serial,
               "DB_DIR":DB_DIR, "lid":[o.lid,o.lid_scale], "diag":o.diag}
 
-  d_inputs = {"opt_iter":o.opt_iter, "opt_rate":o.opt_rate}
+  d_inputs = {"opt_iter":o.opt_iter, "opt_rate":o.opt_rate,
+              "hard":o.opt_soft, "sample":o.opt_sample}
 
   if o.pdb is not None:                   s_inputs["add_pdb"] = True
   if o.pdb is None:                       s_inputs["add_bkg"] = True
