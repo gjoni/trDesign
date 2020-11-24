@@ -336,7 +336,7 @@ class mk_design_model:
     p = self.predict(inputs, weights=weights)
     feat          = p["feat"][0]
     loss_         = to_dict(self.loss_label, p["loss"][0])
-    print("FINAL loss:"+str(loss_).replace(' ',''))
+    if verbose: print("FINAL loss:"+str(loss_).replace(' ',''))
     return {"loss":loss_, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
 
   ###############################################################################
