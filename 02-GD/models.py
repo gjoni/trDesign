@@ -340,7 +340,7 @@ class mk_design_model:
     return {"loss":loss_, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
 
   ###############################################################################
-  def predict(self, inputs, weights=None, sample=False, hard=True, temp=1.0, train=True):
+  def predict(self, inputs, weights=None, sample=False, hard=True, temp=1.0, train=False):
     if weights is None: weights = {}
     # prep inputs
     weights_list = to_list(self.loss_label, weights, 1)
