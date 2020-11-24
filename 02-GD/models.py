@@ -111,7 +111,7 @@ class mk_design_model:
   ###############################################################################
   def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
                add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
-               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
+               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, reparam=True,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
     self.serial = serial
@@ -232,7 +232,11 @@ class mk_design_model:
       ################################
       print(f"The loss function is composed of the following: {self.loss_label}")
       loss = tf.stack(loss,-1) * loss_weights
-      grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])
+      if reparam:
+        grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])
+      else:
+        grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I_hard])
+
 
       ################################
       # define model
