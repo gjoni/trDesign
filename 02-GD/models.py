@@ -251,7 +251,7 @@ class mk_design_model:
   def design(self, inputs, weights=None, num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
-             temp_decay=2., temp_min=1.0, temp_max=1.0,
+             temp_decay=2.0, temp_min=1.0, temp_max=1.0,
              hard=True, hard_switch=None,
              sample=False, sample_switch=None,
              return_traj=False, shuf=True, recompute_loss=False):
@@ -478,11 +478,11 @@ class PSSM(Layer):
     feat = tf.concat([feat_1D_tile_A, feat_1D_tile_B, feat_2D],axis=-1)
     return tf.reshape(feat, [1,L,L,442+2*42])
 
-def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
+def categorical(y_logits, temp=1.0, sample=False, hard=True):
   # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
 
   def sample_gumbel(shape, eps=1e-20):
-    U = tf.random.uniform(shape,minval=0,maxval=1)
+    U = tf.random.uniform(shape, minval=0, maxval=1)
     return -tf.math.log(-tf.math.log(U + eps) + eps)
   
   def gumbel_softmax_sample(logits): 
@@ -493,7 +493,7 @@ def categorical(y_logits, temp=1.0, sample=False, train=False, hard=True):
     y = tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])  # argmax
     return tf.stop_gradient(y-x)+x                   # gradient bypass
   
-  y = tf.nn.softmax(y_logits/temp,-1)  
-  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y)    
-  y_hard = K.switch(hard, one_hot(y), y)
+  y_soft = tf.nn.softmax(y_logits/temp,-1)  
+  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
+  y_hard = K.switch(hard, one_hot(y_soft), y_soft)
   return y_soft, y_hard
