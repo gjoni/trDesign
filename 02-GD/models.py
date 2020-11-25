@@ -496,7 +496,7 @@ def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
     y_prob = tf.nn.softmax(y_logits,-1)
     y = K.switch(sample, gumbel_softmax_sample(y_logits), tf.nn.softmax(y_logits/temp,-1))
     y = K.switch(hard, one_hot(y), y)
-    y = tf.stop_gradient(y_hard - y_prob) + y_prob # gradient bypass
+    y = tf.stop_gradient(y - y_prob) + y_prob # gradient bypass
     return y_prob, y
   else:
     y_soft = tf.nn.softmax(y_logits/temp,-1)  
