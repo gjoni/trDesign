@@ -111,7 +111,7 @@ class mk_design_model:
   ###############################################################################
   def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
                add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
-               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8, reparam=True,
+               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0]):
 
     self.serial = serial
@@ -232,11 +232,7 @@ class mk_design_model:
       ################################
       print(f"The loss function is composed of the following: {self.loss_label}")
       loss = tf.stack(loss,-1) * loss_weights
-      if reparam:
-        grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])
-      else:
-        grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I_hard])
-
+      grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])
 
       ################################
       # define model
@@ -306,10 +302,6 @@ class mk_design_model:
         losses.append(np.sum(loss))
         if return_traj: traj.append(p)
 
-      # save best result
-      #if tot_loss < best_loss:
-      #  best_loss, best_I = tot_loss, np.copy(inputs["I"])
-
       # GD optimizer
       if opt_method == "GD":
         p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
@@ -318,8 +310,12 @@ class mk_design_model:
       # GD optimizer + decay
       if opt_method == "GD_decay":
         p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
+        lr = opt_rate * np.sqrt(L) * np.power(1 - k/opt_iter, opt_decay)
+        
+      if opt_method == "GD_decay_old":
+        p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
         lr = opt_rate * np.power(1 - k/opt_iter, opt_decay)
-
+        
       # ADAM optimizer
       if opt_method == "ADAM":
         mt = b1*mt + (1-b1)*p["grad"]
@@ -336,10 +332,10 @@ class mk_design_model:
         print(f"{k+1} loss:"+str(loss_).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
 
     # recompute output
-    # if self.feat_drop == 0 and self.sample == False: inputs["I"] = best_I
     p = self.predict(inputs, weights=weights)
     feat          = p["feat"][0]
     loss_         = to_dict(self.loss_label, p["loss"][0])
+
     if verbose: print("FINAL loss:"+str(loss_).replace(' ',''))
     return {"loss":loss_, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
 
