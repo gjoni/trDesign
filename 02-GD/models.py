@@ -109,7 +109,7 @@ class mk_design_model:
   ###############################################################################
   # DO SETUP
   ###############################################################################
-  def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False,
+  def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False, add_l2=False,
                add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
                serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False):
@@ -203,6 +203,11 @@ class mk_design_model:
     if add_seq_cst:
       seq_cst_loss = -K.sum(seq_cst * K.log(I_soft + eps),-1)
       add_loss(K.mean(seq_cst_loss,[-1,-2]),"seq_cst")
+      
+    # add l2 penality on sequence
+    if add_l2:
+      l2_loss = K.mean(tf.square(I))
+      add_loss(l2_loss,"l2")
 
     # amino acid composition loss
     if add_aa_ref:
@@ -492,15 +497,8 @@ def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
   def one_hot(x):
     return tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])
   
-  if test:
-    y_prob = tf.nn.softmax(y_logits,-1)
-    y = K.switch(sample, gumbel_softmax_sample(y_logits), tf.nn.softmax(y_logits/temp,-1))
-    y = K.switch(hard, one_hot(y), y)
-    y = tf.stop_gradient(y - y_prob) + y_prob # gradient bypass
-    return y_prob, y
-  else:
-    y_soft = tf.nn.softmax(y_logits/temp,-1)  
-    y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
-    y_hard = K.switch(hard, one_hot(y_soft), y_soft)
-    y_hard = tf.stop_gradient(y_hard - y_soft) + y_soft
-    return y_soft, y_hard
+  y_soft = tf.nn.softmax(y_logits/temp,-1)  
+  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
+  y_hard = K.switch(hard, one_hot(y_soft), y_soft)
+  y_hard = tf.stop_gradient(y_hard - y_soft) + y_soft
+  return y_soft, y_hard
