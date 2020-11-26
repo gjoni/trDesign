@@ -7,16 +7,14 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import numpy as np
 
 # Should work in both TF1 and TF2
-import tensorflow as tf
-import tensorflow.compat.v1 as tf1
-import tensorflow.compat.v1.keras.backend as K1
+import tensorflow.compat.v1 as tf
+import tensorflow.compat.v1.keras.backend as K
 from tensorflow.keras.models import Model, clone_model
 from tensorflow.keras.layers import Input, Conv2D, Activation, Dense, Lambda, Layer, Concatenate, Average
-import tensorflow.keras.backend as K
-tf1.disable_eager_execution()
+tf.disable_eager_execution()
 
 # HACK to fix compatibility issues with RTX2080
-config = tf1.ConfigProto()
+config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 
 from utils import *
@@ -92,7 +90,7 @@ def load_weights(filename):
 def get_bkg(L, DB_DIR=".", sample=1):
   # get background feat for [L]ength
   K.clear_session()
-  K1.set_session(tf1.Session(config=config))
+  K.set_session(tf.Session(config=config))
   bkg = {l:[] for l in L}
   bkg_model = RESNET(mode="TrR_BKG", blocks=7, bkg_sample=sample)
   for w in range(1,5):
@@ -119,7 +117,7 @@ class mk_design_model:
 
     # reset graph
     K.clear_session()
-    K1.set_session(tf1.Session(config=config))
+    K.set_session(tf.Session(config=config))
 
     # configure inputs
     self.in_label,inputs = [],[]
@@ -204,14 +202,11 @@ class mk_design_model:
       seq_cst_loss = -K.sum(seq_cst * K.log(I_soft + eps),-1)
       add_loss(K.mean(seq_cst_loss,[-1,-2]),"seq_cst")
       
-    # add l2 penality on sequence
+    # amino acid composition loss
     if add_l2:
       l2_loss = K.mean(tf.square(I),[-1,-2,-3])
       add_loss(l2_loss,"l2")
-
-    # amino acid composition loss
     if add_aa_comp:
-      # experimental
       aa = tf.constant(AA_COMP, dtype=tf.float32)
       I_prob = K.softmax(I)
       aa_loss = K.sum(I_prob * (K.log(I_prob+eps) - K.log(aa+eps)),-1)
@@ -223,7 +218,6 @@ class mk_design_model:
       aa_loss = K.sum(I_aa*K.log(I_aa/(aa+eps)+eps),-1)
       add_loss(K.mean(aa_loss,-1),"aa")
     elif add_aa_ref:
-      # experimental
       aa = tf.constant(AA_REF, dtype=tf.float32)
       I_prob = tf.nn.softmax(I,-1)
       aa_loss = K.sum(K.mean(I_prob*aa,[-2,-3]),-1)
@@ -294,19 +288,8 @@ class mk_design_model:
 
       # compute loss/gradient
       p = self.predict(inputs, weights=weights, sample=sample, temp=temp, hard=hard, train=True)
-      
-      if recompute_loss:
-        q = self.predict(inputs, weights=weights)
-        loss = q["loss"]
-        losses.append(np.sum(loss))
-        if return_traj: traj.append(q)
-      else:
-        loss = p["loss"]
-        losses.append(np.sum(loss))
-        if return_traj: traj.append(p)
-
       # normalize gradient
-      p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
+      p["grad"] /= np.linalg.norm(p["grad"],axis=(-1,-2),keepdims=True) + 1e-8
       
       # optimizers
       if opt_method == "GD":
@@ -321,10 +304,20 @@ class mk_design_model:
         p["grad"] = mt/(np.sqrt(vt) + 1e-8)
         lr = opt_rate * np.sqrt(1-np.power(b2,k+1))/(1-np.power(b1,k+1))
         
-      # update
+      # apply gradient
       inputs["I"] -= lr * p["grad"]
+      
+      # logging for future analysis
+      if recompute_loss:
+        q = self.predict(inputs, weights=weights)
+        loss = q["loss"]
+        losses.append(np.sum(loss))
+        if return_traj: traj.append(q)
+      else:
+        loss = p["loss"]
+        losses.append(np.sum(loss))
+        if return_traj: traj.append(p)
 
-      # report loss
       if verbose and (k+1) % 10 == 0:
         loss_ = to_dict(self.loss_label, loss[0])
         print(f"{k+1} loss:"+str(loss_).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
@@ -490,8 +483,19 @@ def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
   def one_hot(x):
     return tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])
   
-  y_soft = tf.nn.softmax(y_logits/temp,-1)  
-  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
-  y_hard = K.switch(hard, one_hot(y_soft), y_soft)
+  def one_hot_sample(logits):
+    cat = tf.shape(logits)[-1]
+    logits_flat = tf.reshape(y_logits,(-1,cat))
+    hard_flat = tf.one_hot(tf.random.categorical(logits_flat,1),cat)
+    return tf.reshape(hard,tf.shape(logits))
+
+  y_soft = tf.nn.softmax(y_logits/temp,-1)
+  
+  if test:
+    y_hard = K.switch(sample, one_hot_sample(y_logits), one_hot(y_logits))
+  else:
+    y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
+    y_hard = K.switch(hard, one_hot(y_soft), y_soft)
+                                     
   y_hard = tf.stop_gradient(y_hard - y_soft) + y_soft
   return y_soft, y_hard
