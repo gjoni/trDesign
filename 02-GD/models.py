@@ -210,26 +210,24 @@ class mk_design_model:
       add_loss(l2_loss,"l2")
 
     # amino acid composition loss
-    if add_aa_ref:
-      # experimental
-      aa = tf.constant(AA_REF, dtype=tf.float32)
-      I_prob = tf.nn.softmax(I,-1)
-      aa_loss = K.sum(K.mean(I_prob*aa,[-2,-3]),-1)
-      add_loss(aa_loss,"aa")
-
-    elif add_aa_comp:
+    if add_aa_comp:
       # experimental
       aa = tf.constant(AA_COMP, dtype=tf.float32)
-      I_prob = tf.nn.softmax(I,-1)
-      aa_loss = K.sum(I_prob*K.log(I_prob/(aa+eps)+eps),-1)
+      I_prob = K.softmax(I)
+      aa_loss = K.sum(I_prob * (K.log(I_prob+eps) - K.log(aa+eps)),-1)
       add_loss(K.mean(aa_loss,[-1,-2]),"aa")
-      
     elif add_aa_comp_old:
       # ivan's original AA comp loss (from hallucination paper)
       aa = tf.constant(AA_COMP, dtype=tf.float32)
       I_aa = K.mean(I_hard,-2) # mean over length
       aa_loss = K.sum(I_aa*K.log(I_aa/(aa+eps)+eps),-1)
       add_loss(K.mean(aa_loss,-1),"aa")
+    elif add_aa_ref:
+      # experimental
+      aa = tf.constant(AA_REF, dtype=tf.float32)
+      I_prob = tf.nn.softmax(I,-1)
+      aa_loss = K.sum(K.mean(I_prob*aa,[-2,-3]),-1)
+      add_loss(aa_loss,"aa")
 
     if len(loss) > 0:
       ################################
@@ -313,20 +311,26 @@ class mk_design_model:
         lr = opt_rate * np.sqrt(L)
 
       # GD optimizer + decay
-      if opt_method == "GD_decay":
+      elif opt_method == "GD_decay":
         p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
         lr = opt_rate * np.sqrt(L) * np.power(1 - k/opt_iter, opt_decay)
         
-      if opt_method == "GD_decay_old":
+      elif opt_method == "GD_decay_old":
         p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
         lr = opt_rate * np.power(1 - k/opt_iter, opt_decay)
         
       # ADAM optimizer
-      if opt_method == "ADAM":
+      elif opt_method == "ADAM":
         mt = b1*mt + (1-b1)*p["grad"]
         vt = b2*vt + (1-b2)*np.square(p["grad"])
         p["grad"] = mt/(np.sqrt(vt) + 1e-8)
         lr = opt_rate * np.sqrt(1-np.power(b2,k+1))/(1-np.power(b1,k+1))
+
+      elif opt_method == "MODADAM":
+        mt = b1*mt + (1-b1)*p["grad"]
+        vt = b2*vt + (1-b2)*np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
+        p["grad"] = mt/(np.sqrt(vt) + 1e-8)
+        lr = opt_rate * np.sqrt(L) * np.sqrt(1-np.power(b2,k+1))/(1-np.power(b1,k+1))
 
       # update
       inputs["I"] -= lr * p["grad"]
