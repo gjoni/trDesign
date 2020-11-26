@@ -485,9 +485,9 @@ def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
   
   def one_hot_sample(logits):
     cat = tf.shape(logits)[-1]
-    logits_flat = tf.reshape(y_logits,(-1,cat))
+    logits_flat = tf.reshape(logits,(-1,cat))
     hard_flat = tf.one_hot(tf.random.categorical(logits_flat,1),cat)
-    return tf.reshape(hard,tf.shape(logits))
+    return tf.reshape(hard_flat,tf.shape(logits))
 
   y_soft = tf.nn.softmax(y_logits/temp,-1)
   
