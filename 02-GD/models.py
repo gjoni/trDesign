@@ -206,7 +206,7 @@ class mk_design_model:
       
     # add l2 penality on sequence
     if add_l2:
-      l2_loss = K.mean(tf.square(I))
+      l2_loss = K.mean(tf.square(I),[-1,-2,-3])
       add_loss(l2_loss,"l2")
 
     # amino acid composition loss
