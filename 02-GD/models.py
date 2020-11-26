@@ -305,33 +305,22 @@ class mk_design_model:
         losses.append(np.sum(loss))
         if return_traj: traj.append(p)
 
-      # GD optimizer
+      # normalize gradient
+      p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
+      
+      # optimizers
       if opt_method == "GD":
-        p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
         lr = opt_rate * np.sqrt(L)
-
-      # GD optimizer + decay
       elif opt_method == "GD_decay":
-        p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
         lr = opt_rate * np.sqrt(L) * np.power(1 - k/opt_iter, opt_decay)
-        
       elif opt_method == "GD_decay_old":
-        p["grad"] /= np.sqrt(np.square(p["grad"]).sum((-1,-2),keepdims=True)) + 1e-8
         lr = opt_rate * np.power(1 - k/opt_iter, opt_decay)
-        
-      # ADAM optimizer
       elif opt_method == "ADAM":
         mt = b1*mt + (1-b1)*p["grad"]
         vt = b2*vt + (1-b2)*np.square(p["grad"])
         p["grad"] = mt/(np.sqrt(vt) + 1e-8)
         lr = opt_rate * np.sqrt(1-np.power(b2,k+1))/(1-np.power(b1,k+1))
-
-      elif opt_method == "MODADAM":
-        mt = b1*mt + (1-b1)*p["grad"]
-        vt = b2*vt + (1-b2)*np.square(p["grad"]).sum((-1,-2),keepdims=True)
-        p["grad"] = mt/(np.sqrt(vt) + 1e-8)
-        lr = opt_rate * np.sqrt(L) * np.sqrt(1-np.power(b2,k+1))/(1-np.power(b1,k+1))
-
+        
       # update
       inputs["I"] -= lr * p["grad"]
 
