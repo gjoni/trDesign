@@ -102,7 +102,7 @@ def get_bkg(L, DB_DIR=".", sample=1):
 
 ##############################################################################
 # TrR DESIGN
-##############################################################################
+##############################################################################  
 class mk_design_model:
   ###############################################################################
   # DO SETUP
@@ -115,22 +115,35 @@ class mk_design_model:
     self.serial = serial
     self.feat_drop = feat_drop
 
-    # reset graph
-    K.clear_session()
-    K.set_session(tf.Session(config=config))
-
-    # configure inputs
+    ##############################################
+    # keeping track of inputs, outputs and losses
+    ##############################################
     self.in_label,inputs = [],[]
     def add_input(shape, label, dtype=tf.float32):
       inputs.append(Input(shape, batch_size=1, dtype=dtype))
       self.in_label.append(label)
       return inputs[-1][0] if len(shape) == 0 else inputs[-1]
+    
+    self.out_label,outputs = [],[]
+    def add_output(out, label):
+      outputs.append(out)
+      self.out_label.append(label)
+      
+    self.loss_label,loss = [],[]
+    def add_loss(term, label):
+      loss.append(term)
+      self.loss_label.append(label)
+    ##############################################
+    
+    # reset graph
+    K.clear_session()
+    K.set_session(tf.Session(config=config))
 
+    # configure inputs
     I = add_input((None,None,20),"I")
     if add_pdb: pdb = add_input((None,None,100),"pdb")
     if add_bkg: bkg = add_input((None,None,100),"bkg")
     if add_seq_cst: seq_cst = add_input((None,20),"seq_cst")
-
     loss_weights = add_input((None,),"loss_weights")
     sample = add_input([],"sample",tf.bool)
     hard = add_input([],"hard",tf.bool)
@@ -182,11 +195,6 @@ class mk_design_model:
     ################################
     # define loss
     ################################
-    self.loss_label,loss = [],[]
-    def add_loss(term,label):
-      loss.append(term)
-      self.loss_label.append(label)
-
     # cross-entropy loss for fixed backbone design
     if add_pdb:
       pdb_loss = -K.sum(pdb*K.log(O_feat+eps),-1)
@@ -194,8 +202,8 @@ class mk_design_model:
 
     # kl loss for hallucination
     if add_bkg:
-      bkg_loss = -0.25*K.sum(O_feat*K.log(O_feat/(bkg+eps)+eps),-1)
-      add_loss(K.mean(bkg_loss,[-1,-2]),"bkg")
+      bkg_loss = -K.sum(O_feat*(K.log(O_feat+eps)-K.log(bkg+eps)),-1)
+      add_loss(K.sum(bkg_loss,[-1,-2])/K.sum(bkg,[-1,-2,-3]),"bkg")
       
     # add sequence constraint
     if add_seq_cst:
@@ -209,7 +217,7 @@ class mk_design_model:
     if add_aa_comp:
       aa = tf.constant(AA_COMP, dtype=tf.float32)
       I_prob = K.softmax(I)
-      aa_loss = K.sum(I_prob * (K.log(I_prob+eps) - K.log(aa+eps)),-1)
+      aa_loss = K.sum(I_prob*(K.log(I_prob+eps)-K.log(aa+eps)),-1)
       add_loss(K.mean(aa_loss,[-1,-2]),"aa")
     elif add_aa_comp_old:
       # ivan's original AA comp loss (from hallucination paper)
@@ -234,11 +242,11 @@ class mk_design_model:
       ################################
       # define model
       ################################
-      self.out_label = ["grad","loss","feat"]
-      outputs = [grad,loss,O_feat]
+      add_output(grad,"grad")
+      add_output(loss,"loss")
+      add_output(O_feat,"feat")
     else:
-      self.out_label = ["feat"]
-      outputs = [O_feat]
+      add_output(O_feat,"feat")
       
     self.model = Model(inputs, outputs)
 
@@ -269,13 +277,11 @@ class mk_design_model:
       inputs["I"][...,rm_aa] = -1e9
 
     losses, traj = [],[]
-    #best_loss, best_I = np.inf,None
     inputs["I"] += np.random.normal(0,0.01,size=inputs["I"].shape)
     mt,vt = 0,0
     
     # optimize
-    for k in range(opt_iter):
-      
+    for k in range(opt_iter):      
       # softmax gumbel controls
       if k in hard_switch: hard = (hard == False)
       if k in sample_switch: sample = (sample == False)
