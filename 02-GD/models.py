@@ -107,9 +107,10 @@ class mk_design_model:
   ###############################################################################
   # DO SETUP
   ###############################################################################
-  def __init__(self, add_pdb=False, add_bkg=False, add_seq_cst=False, add_l2=False,
-               add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False, n_models=5, specific_models=None,
-               serial=False, diag=0.4, pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
+  def __init__(self, add_pdb=False, add_bkg=False, add_seq=False,
+               add_l2=False, add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False,
+               n_models=5, specific_models=None, serial=False, diag=0.4,
+               pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
                DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False):
 
     self.serial = serial
@@ -129,9 +130,9 @@ class mk_design_model:
       outputs.append(out)
       self.out_label.append(label)
       
-    self.loss_label,loss = [],[]
+    self.loss_label,losses = [],[]
     def add_loss(term, label):
-      loss.append(term)
+      losses.append(term)
       self.loss_label.append(label)
     ##############################################
     
@@ -140,15 +141,15 @@ class mk_design_model:
     K.set_session(tf.Session(config=config))
 
     # configure inputs
-    I = add_input((None,None,20),"I")
+    I               = add_input((None,None,20),"I")
     if add_pdb: pdb = add_input((None,None,100),"pdb")
     if add_bkg: bkg = add_input((None,None,100),"bkg")
-    if add_seq_cst: seq_cst = add_input((None,20),"seq_cst")
-    loss_weights = add_input((None,),"loss_weights")
-    sample = add_input([],"sample",tf.bool)
-    hard = add_input([],"hard",tf.bool)
-    temp = add_input([],"temp",tf.float32)
-    train = add_input([],"train",tf.bool)
+    if add_seq: seq = add_input((None,20),"seq_cst")
+    loss_weights    = add_input((None,),"loss_weights")
+    sample          = add_input([],"sample",tf.bool)
+    hard            = add_input([],"hard",tf.bool)
+    temp            = add_input([],"temp",tf.float32)
+    train           = add_input([],"train",tf.bool)
 
     ################################
     # input features
@@ -198,17 +199,20 @@ class mk_design_model:
     # cross-entropy loss for fixed backbone design
     if add_pdb:
       pdb_loss = -K.sum(pdb*K.log(O_feat+eps),-1)
-      add_loss(K.sum(pdb_loss,[-1,-2])/K.sum(pdb,[-1,-2,-3]),"pdb")
+      pdb_loss = K.sum(pdb_loss,[-1,-2])/K.sum(pdb,[-1,-2,-3])
+      add_loss(pdb_loss,"pdb")
 
     # kl loss for hallucination
     if add_bkg:
       bkg_loss = -K.sum(O_feat*(K.log(O_feat+eps)-K.log(bkg+eps)),-1)
-      add_loss(K.sum(bkg_loss,[-1,-2])/K.sum(bkg,[-1,-2,-3]),"bkg")
+      bkg_loss = K.sum(bkg_loss,[-1,-2])/K.sum(bkg,[-1,-2,-3])
+      add_loss(bkg_loss,"bkg")
       
     # add sequence constraint
     if add_seq_cst:
-      seq_cst_loss = -K.sum(seq_cst * K.log(I_soft + eps),-1)
-      add_loss(K.mean(seq_cst_loss,[-1,-2]),"seq_cst")
+      seq_loss = -K.sum(seq_cst * K.log(I_soft + eps),-1)
+      seq_loss = K.mean(seq_cst_loss,[-1,-2])
+      add_loss(seq_loss,"seq")
       
     # amino acid composition loss
     if add_l2:
@@ -218,25 +222,27 @@ class mk_design_model:
       aa = tf.constant(AA_COMP, dtype=tf.float32)
       I_prob = K.softmax(I)
       aa_loss = K.sum(I_prob*(K.log(I_prob+eps)-K.log(aa+eps)),-1)
-      add_loss(K.mean(aa_loss,[-1,-2]),"aa")
+      aa_loss = K.mean(aa_loss,[-1,-2])
+      add_loss(aa_loss,"aa")
     elif add_aa_comp_old:
       # ivan's original AA comp loss (from hallucination paper)
       aa = tf.constant(AA_COMP, dtype=tf.float32)
       I_aa = K.mean(I_hard,-2) # mean over length
       aa_loss = K.sum(I_aa*K.log(I_aa/(aa+eps)+eps),-1)
-      add_loss(K.mean(aa_loss,-1),"aa")
+      aa_loss = K.mean(aa_loss,-1)
+      add_loss(aa_loss,"aa")
     elif add_aa_ref:
       aa = tf.constant(AA_REF, dtype=tf.float32)
       I_prob = tf.nn.softmax(I,-1)
       aa_loss = K.sum(K.mean(I_prob*aa,[-2,-3]),-1)
       add_loss(aa_loss,"aa")
 
-    if len(loss) > 0:
+    if len(losses) > 0:
       ################################
       # define gradients
       ################################
       print(f"The loss function is composed of the following: {self.loss_label}")
-      loss = tf.stack(loss,-1) * loss_weights
+      loss = tf.stack(losses,-1) * loss_weights
       grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])
 
       ################################
@@ -244,10 +250,8 @@ class mk_design_model:
       ################################
       add_output(grad,"grad")
       add_output(loss,"loss")
-      add_output(O_feat,"feat")
-    else:
-      add_output(O_feat,"feat")
-      
+   
+    add_output(O_feat,"feat")      
     self.model = Model(inputs, outputs)
 
   ###############################################################################
@@ -268,7 +272,7 @@ class mk_design_model:
     # define length
     if   "pdb" in inputs: L = inputs["pdb"].shape[-2]
     elif "bkg" in inputs: L = inputs["bkg"].shape[-2]
-    elif "I" in inputs: L = inputs["I"].shape[-2]
+    elif "I"   in inputs: L = inputs["I"].shape[-2]
 
     # initialize
     if "I" not in inputs or inputs["I"] is None:
