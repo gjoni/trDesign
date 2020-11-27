@@ -494,17 +494,21 @@ def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
     return tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])
   
   def one_hot_sample(logits):
-    cat = tf.shape(logits)[-1]
-    logits_flat = tf.reshape(logits,(-1,cat))
-    hard_flat = tf.one_hot(tf.random.categorical(logits_flat,1),cat)
-    return tf.reshape(hard_flat,tf.shape(logits))
+    if test == 1:
+      cat = tf.shape(logits)[-1]
+      logits_flat = tf.reshape(logits,(-1,cat))
+      hard_flat = tf.one_hot(tf.random.categorical(logits_flat,1),cat)
+      return tf.reshape(hard_flat,tf.shape(logits))
+    if test == 2:
+      return one_hot(gumbel_softmax_sample(logits))
 
-  y_soft = tf.nn.softmax(y_logits/temp,-1)
-  if test:
-    y_hard = K.switch(sample, one_hot_sample(y_logits/temp), one_hot(y_logits))
+  if test == 0:
+    y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), tf.nn.softmax(y_logits,-1))
+    y_hard = one_hot(y_soft)
+    #y_hard = K.switch(hard, one_hot(y_soft), y_soft)
   else:
-    y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
-    y_hard = K.switch(hard, one_hot(y_soft), y_soft)
+    y_soft = tf.nn.softmax(y_logits,-1)
+    y_hard = K.switch(sample, one_hot_sample(y_logits), one_hot(y_logits))
                                      
   y_hard = tf.stop_gradient(y_hard - y_soft) + y_soft
   return y_soft, y_hard
