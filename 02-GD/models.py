@@ -490,9 +490,8 @@ def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
     return tf.reshape(hard_flat,tf.shape(logits))
 
   y_soft = tf.nn.softmax(y_logits/temp,-1)
-  
   if test:
-    y_hard = K.switch(sample, one_hot_sample(y_logits), one_hot(y_logits))
+    y_hard = K.switch(sample, one_hot_sample(y_logits/temp), one_hot(y_logits))
   else:
     y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), y_soft)    
     y_hard = K.switch(hard, one_hot(y_soft), y_soft)
