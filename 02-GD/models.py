@@ -144,7 +144,7 @@ class mk_design_model:
     I               = add_input((None,None,20),"I")
     if add_pdb: pdb = add_input((None,None,100),"pdb")
     if add_bkg: bkg = add_input((None,None,100),"bkg")
-    if add_seq: seq = add_input((None,20),"seq_cst")
+    if add_seq: seq = add_input((None,20),"seq")
     loss_weights    = add_input((None,),"loss_weights")
     sample          = add_input([],"sample",tf.bool)
     hard            = add_input([],"hard",tf.bool)
@@ -209,9 +209,9 @@ class mk_design_model:
       add_loss(bkg_loss,"bkg")
       
     # add sequence constraint
-    if add_seq_cst:
-      seq_loss = -K.sum(seq_cst * K.log(I_soft + eps),-1)
-      seq_loss = K.mean(seq_cst_loss,[-1,-2])
+    if add_seq:
+      seq_loss = -K.sum(seq * K.log(I_soft + eps),-1)
+      seq_loss = K.mean(seq_loss,[-1,-2])
       add_loss(seq_loss,"seq")
       
     # amino acid composition loss
