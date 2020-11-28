@@ -338,7 +338,7 @@ class mk_design_model:
       
       # logging for future analysis
       if recompute_loss:
-        q = self.predict(inputs, weights=weights)
+        q = self.predict(inputs, loss1_weights=loss1_weights, loss2_weights=loss2_weights)
         loss1,loss2 = q["loss1"],q["loss2"]
         losses.append(np.sum(loss1)+np.sum(loss2))
         if return_traj: traj.append(q)
@@ -353,7 +353,7 @@ class mk_design_model:
         print(f"{k+1} loss:"+(str(loss1_)+str(loss2_)).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
 
     # recompute output
-    p = self.predict(inputs, weights=weights)
+    p = self.predict(inputs, loss1_weights=loss1_weights, loss2_weights=loss2_weights)
     feat          = p["feat"][0]
     loss1_        = to_dict(self.loss1_label, p["loss1"][0])
     loss2_        = to_dict(self.loss2_label, p["loss2"][0])
