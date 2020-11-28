@@ -270,8 +270,8 @@ class mk_design_model:
   # DO DESIGN
   ###############################################################################
   def design(self, inputs,
-             loss1_weights=None, loss1_weight=1
-             loss2_weights=None, loss2_weight=1,
+             loss1_weights=None, loss1_weight=1.0,
+             loss2_weights=None, loss2_weight=1.0,
              num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
