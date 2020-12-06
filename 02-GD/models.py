@@ -65,7 +65,7 @@ def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1, o
     for dilation in [1,2,4,8,16]:
       A = resnet(A, dilation)
       all_A.append(A)
-  A = resnet(A_asym, dilation=1)
+  A = resnet(A, dilation=1)
   all_A.append(A)
   
   ## OUTPUT ##
