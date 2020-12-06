@@ -37,7 +37,7 @@ class instance_norm(Layer):
     mean, variance = tf.nn.moments(inputs, self.axes, keepdims=True)
     return tf.nn.batch_normalization(inputs, mean, variance, self.beta, self.gamma, 1e-6)
 
-def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1, output_all=False):
+def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1, output_all_layers=False):
   ## INPUT ##
   if mode == "TrR":
     inputs = Input((None,None,526)) # (batch,len,len,feat)
@@ -66,7 +66,7 @@ def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1, o
       all_A.append(resnet(all_A[-1], dilation))
 
   ## OUTPUT ##
-  A_input = Input((None,None,64))
+  A_input   = Input((None,None,64))
   A_asym    = resnet(A_input, dilation=1)
   p_theta   = Dense(25, activation="softmax", **ex)(A_asym)
   p_phi     = Dense(13, activation="softmax", **ex)(A_asym)
@@ -77,7 +77,7 @@ def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1, o
   A_model   = Model(A_input,A_outs)
 
   ## MODEL ##
-  if output_all: outs = [A_model(A) for A in all_A]
+  if output_all_layers: outs = [A_model(A) for A in all_A]
   else: outs = A_model(all_A[-1])
   model = Model(inputs, outs)
   if weights is not None: model.set_weights(weights)
@@ -116,7 +116,7 @@ class mk_design_model:
                add_l2=False, add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False,
                n_models=5, specific_models=None, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
-               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False):
+               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False, output_all=False):
 
     self.serial = serial
     self.feat_drop = feat_drop
@@ -194,10 +194,14 @@ class mk_design_model:
       print(f"loading model: {token}")
       weights = load_weights(f"{DB_DIR}/models/model_{token}.npy")
       if self.serial: self.models.append(weights)
-      else: self.models.append(RESNET(weights=weights, mode="TrR")(I_feat))
+      else: self.models.append(RESNET(weights=weights, mode="TrR", output_all_layers=output_all_layers)(I_feat))
         
-    if self.serial: O_feat = RESNET(mode="TrR")(I_feat)
+    if self.serial: O_feat = RESNET(mode="TrR", output_all_layers=output_all_layers)(I_feat)
     else: O_feat = tf.reduce_mean(self.models,0)
+      
+    if output_all_layers:
+      O_feat_all = O_feat
+      O_feat = O_feat[-1]
 
     ################################
     # define loss
@@ -253,7 +257,10 @@ class mk_design_model:
       add_output(grad,"grad")
       add_output(loss,"loss")
 
-    add_output(O_feat,"feat")      
+    add_output(O_feat,"feat")
+    if output_all_layers:
+      for n,o in enumerate(O_feat_all):
+        add_output(o,f"feat_{n}")
     ################################
     # define model
     ################################
@@ -328,7 +335,7 @@ class mk_design_model:
       # logging for future analysis
       if recompute_loss:
         q = self.predict(inputs, loss_weights=loss_weights)
-        loss q["loss"]
+        loss = q["loss"]
         losses.append(np.sum(loss))
         if return_traj: traj.append(q)
       else:
