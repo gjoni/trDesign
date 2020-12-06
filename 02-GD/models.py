@@ -116,7 +116,7 @@ class mk_design_model:
                add_l2=False, add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False,
                n_models=5, specific_models=None, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
-               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False, output_all=False):
+               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False, output_all_layers=False):
 
     self.serial = serial
     self.feat_drop = feat_drop
