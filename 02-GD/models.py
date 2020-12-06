@@ -61,13 +61,15 @@ def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1, o
     return Activation("elu")(X+Y)
 
   all_A = [A]
-  for _ in range(blocks):
+  for _ in range(blocks-1):
     for dilation in [1,2,4,8,16]:
-      all_A.append(resnet(all_A[-1], dilation))
+      A = resnet(A, dilation)
+      all_A.append(A)
 
   ## OUTPUT ##
   A_input   = Input((None,None,64))
-  A_asym    = resnet(A_input, dilation=1)
+  A_asym    = A_input
+  for dilation in [1,2,4,8,16,1]: A_asym = resnet(A_asym, dilation)
   p_theta   = Dense(25, activation="softmax", **ex)(A_asym)
   p_phi     = Dense(13, activation="softmax", **ex)(A_asym)
   A_sym     = Lambda(lambda x: (x + tf.transpose(x,[0,2,1,3]))/2)(A_asym)
