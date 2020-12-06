@@ -37,7 +37,7 @@ class instance_norm(Layer):
     mean, variance = tf.nn.moments(inputs, self.axes, keepdims=True)
     return tf.nn.batch_normalization(inputs, mean, variance, self.beta, self.gamma, 1e-6)
 
-def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1):
+def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1, output_all=False):
   ## INPUT ##
   if mode == "TrR":
     inputs = Input((None,None,526)) # (batch,len,len,feat)
@@ -60,20 +60,25 @@ def RESNET(mode="TrR", blocks=12, weights=None, trainable=False, bkg_sample=1):
     Y = instance_norm(**ex)(Y)
     return Activation("elu")(X+Y)
 
+  all_A = [A]
   for _ in range(blocks):
-    for dilation in [1,2,4,8,16]: A = resnet(A, dilation)
-  A = resnet(A, dilation=1)
+    for dilation in [1,2,4,8,16]:
+      all_A.append(resnet(all_A[-1], dilation))
 
   ## OUTPUT ##
-  A_asym    = A
+  A_input = Input((None,None,64))
+  A_asym    = resnet(A_input, dilation=1)
   p_theta   = Dense(25, activation="softmax", **ex)(A_asym)
   p_phi     = Dense(13, activation="softmax", **ex)(A_asym)
-  A_sym     = Lambda(lambda x: (x + tf.transpose(x,[0,2,1,3]))/2)(A)
+  A_sym     = Lambda(lambda x: (x + tf.transpose(x,[0,2,1,3]))/2)(A_asym)
   p_dist    = Dense(37, activation="softmax", **ex)(A_sym)
   p_omega   = Dense(25, activation="softmax", **ex)(A_sym)
-  outs      = Concatenate()([p_theta, p_phi, p_dist, p_omega])
+  A_outs    = Concatenate()([p_theta, p_phi, p_dist, p_omega])
+  A_model   = Model(A_input,A_outs)
 
   ## MODEL ##
+  if output_all: outs = [A_model(A) for A in all_A]
+  else: outs = A_model(all_A[-1])
   model = Model(inputs, outs)
   if weights is not None: model.set_weights(weights)
   return model
@@ -130,15 +135,10 @@ class mk_design_model:
       outputs.append(tensor)
       self.out_label.append(label)
       
-    self.loss1_label,loss1 = [],[]
-    def add_loss1(tensor, label):
-      loss1.append(tensor)
-      self.loss1_label.append(label)
-
-    self.loss2_label,loss2 = [],[]
-    def add_loss2(tensor, label):
-      loss2.append(tensor)
-      self.loss2_label.append(label)
+    self.loss_label,loss = [],[]
+    def add_loss(tensor, label):
+      loss.append(tensor)
+      self.loss_label.append(label)
 
     ##############################################
     
@@ -151,8 +151,7 @@ class mk_design_model:
     if add_pdb: pdb = add_input((None,None,100),"pdb")
     if add_bkg: bkg = add_input((None,None,100),"bkg")
     if add_seq: seq = add_input((None,20),"seq")
-    loss1_weights   = add_input((None,),"loss1_weights")
-    loss2_weights   = add_input((None,),"loss2_weights")
+    loss_weights    = add_input((None,),"loss_weights")
     sample          = add_input([],"sample",tf.bool)
     hard            = add_input([],"hard",tf.bool)
     temp            = add_input([],"temp",tf.float32)
@@ -207,19 +206,19 @@ class mk_design_model:
     if add_pdb:
       pdb_loss = -K.sum(pdb*K.log(O_feat+eps),-1)
       pdb_loss = K.sum(pdb_loss,[-1,-2])/K.sum(pdb,[-1,-2,-3])
-      add_loss1(pdb_loss,"pdb")
+      add_loss(pdb_loss,"pdb")
 
     # kl loss for hallucination
     if add_bkg:
       bkg_loss = -K.sum(O_feat*(K.log(O_feat+eps)-K.log(bkg+eps)),-1)
       bkg_loss = K.sum(bkg_loss,[-1,-2])/K.sum(bkg,[-1,-2,-3])
-      add_loss1(bkg_loss,"bkg")
+      add_loss(bkg_loss,"bkg")
       
     # add sequence constraint
     if add_seq:
       seq_loss = -K.sum(seq * K.log(I_soft + eps),-1)
       seq_loss = K.mean(seq_loss,[-1,-2])
-      add_loss2(seq_loss,"seq")
+      add_loss(seq_loss,"seq")
       
     # amino acid composition loss
     if add_l2:
@@ -247,18 +246,12 @@ class mk_design_model:
     ################################
     # define gradients
     ################################
-    if len(loss1) > 0:
-      print(f"The loss1 function is composed of the following: {self.loss1_label}")
-      loss1 = tf.stack(loss1,-1) * loss1_weights
-      grad1 = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss1, I])      
-      add_output(grad1,"grad1")
-      add_output(loss1,"loss1")
-    if len(loss2) > 0:
-      print(f"The loss2 function is composed of the following: {self.loss2_label}")      
-      loss2 = tf.stack(loss2,-1) * loss2_weights
-      grad2 = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss2, I])
-      add_output(grad2,"grad2")
-      add_output(loss2,"loss2")
+    if len(loss) > 0:
+      print(f"The loss function is composed of the following: {self.loss_label}")
+      loss = tf.stack(loss,-1) * loss_weights
+      grad = Lambda(lambda x: tf.gradients(x[0],x[1])[0])([loss, I])      
+      add_output(grad,"grad")
+      add_output(loss,"loss")
 
     add_output(O_feat,"feat")      
     ################################
@@ -270,8 +263,7 @@ class mk_design_model:
   # DO DESIGN
   ###############################################################################
   def design(self, inputs,
-             loss1_weights=None, loss1_weight=1.0,
-             loss2_weights=None, loss2_weight=1.0,
+             loss_weights=None, loss_weight=1.0,
              num=1, rm_aa=None,
              opt_method="GD", b1=0.9, b2=0.999, opt_iter=100,
              opt_rate=1.0, opt_decay=2.0, verbose=True,
@@ -280,8 +272,7 @@ class mk_design_model:
              sample=False, sample_switch=None,
              return_traj=False, shuf=True, recompute_loss=False):
     
-    if loss1_weights is None: loss1_weights = {} 
-    if loss2_weights is None: loss2_weights = {} 
+    if loss_weights is None: loss_weights = {} 
     if hard_switch is None: hard_switch = []
     if sample_switch is None: sample_switch = []
 
@@ -313,12 +304,10 @@ class mk_design_model:
         inputs["I"] = inputs["I"][:,idx]
 
       # compute loss/gradient
-      p = self.predict(inputs, loss1_weights=loss1_weights, loss2_weights=loss2_weights,
+      p = self.predict(inputs, loss_weights=loss_weights,
                        sample=sample, temp=temp, hard=hard, train=True)
       # normalize gradient
-      p["grad1"] /= np.linalg.norm(p["grad1"],axis=(-1,-2),keepdims=True) + 1e-8
-      p["grad2"] /= np.linalg.norm(p["grad2"],axis=(-1,-2),keepdims=True) + 1e-8      
-      p["grad"] = (loss1_weight*p["grad1"] + loss2_weight*p["grad2"])/2
+      p["grad"] /= np.linalg.norm(p["grad"],axis=(-1,-2),keepdims=True) + 1e-8
       
       # optimizers
       if opt_method == "GD":
@@ -338,37 +327,33 @@ class mk_design_model:
       
       # logging for future analysis
       if recompute_loss:
-        q = self.predict(inputs, loss1_weights=loss1_weights, loss2_weights=loss2_weights)
-        loss1,loss2 = q["loss1"],q["loss2"]
-        losses.append(np.sum(loss1)+np.sum(loss2))
+        q = self.predict(inputs, loss_weights=loss_weights)
+        loss q["loss"]
+        losses.append(np.sum(loss))
         if return_traj: traj.append(q)
       else:
-        loss1,loss2 = p["loss1"],p["loss2"]
-        losses.append(np.sum(loss1)+np.sum(loss2))
+        loss = p["loss"]
+        losses.append(np.sum(loss))
         if return_traj: traj.append(p)
 
       if verbose and (k+1) % 10 == 0:
-        loss1_ = to_dict(self.loss1_label, loss1[0])
-        loss2_ = to_dict(self.loss2_label, loss2[0])
-        print(f"{k+1} loss:"+(str(loss1_)+str(loss2_)).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
+        loss_ = to_dict(self.loss_label, loss[0])
+        print(f"{k+1} loss:"+str(loss_).replace(' ','')+f" sample:{sample} hard:{hard} temp:{temp}")
 
     # recompute output
-    p = self.predict(inputs, loss1_weights=loss1_weights, loss2_weights=loss2_weights)
-    feat          = p["feat"][0]
-    loss1_        = to_dict(self.loss1_label, p["loss1"][0])
-    loss2_        = to_dict(self.loss2_label, p["loss2"][0])
+    p     = self.predict(inputs, loss_weights=loss_weights)
+    feat  = p["feat"][0]
+    loss_ = to_dict(self.loss_label, p["loss"][0])
 
-    if verbose: print("FINAL loss:"+(str(loss1_)+str(loss2_)).replace(' ',''))
-    return {"loss1":loss1_, "loss2":loss2_, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
+    if verbose: print("FINAL loss:"+str(loss_).replace(' ',''))
+    return {"loss":loss_, "feat":feat, "I":inputs["I"], "losses":losses, "traj":traj}
 
   ###############################################################################
-  def predict(self, inputs, loss1_weights=None, loss2_weights=None,
+  def predict(self, inputs, loss_weights=None, loss2_weights=None,
               sample=False, hard=True, temp=1.0, train=False):
-    if loss1_weights is None: loss1_weights = {}
-    if loss2_weights is None: loss2_weights = {}
+    if loss_weights is None: loss_weights = {}
     # prep inputs
-    inputs["loss1_weights"] = np.array([to_list(self.loss1_label,loss1_weights,1)])
-    inputs["loss2_weights"] = np.array([to_list(self.loss2_label,loss2_weights,1)])
+    inputs["loss_weights"] = np.array([to_list(self.loss_label,loss_weights,1)])
     inputs["sample"]        = np.array([sample])
     inputs["hard"]          = np.array([hard])
     inputs["temp"]          = np.array([temp])
