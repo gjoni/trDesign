@@ -118,7 +118,7 @@ class mk_design_model:
                add_l2=False, add_aa_comp_old=False, add_aa_comp=False, add_aa_ref=False,
                n_models=5, specific_models=None, serial=False, diag=0.4,
                pssm_design=False, msa_design=False, feat_drop=0, eps=1e-8,
-               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], test=False, output_all_layers=False):
+               DB_DIR=".", lid=[0.3,18.0], uid=[1,0], output_all_layers=False):
 
     self.serial = serial
     self.feat_drop = feat_drop
@@ -163,7 +163,7 @@ class mk_design_model:
     # input features
     ################################
     def add_gap(x): return tf.pad(x,[[0,0],[0,0],[0,0],[0,1]])
-    I_soft, I_hard = categorical(I, temp=temp, hard=hard, sample=sample, test=test)
+    I_soft, I_hard = categorical(I, temp=temp, hard=hard, sample=sample)
     # configuring input
     if msa_design:
       print("mode: msa design")
@@ -496,7 +496,7 @@ class PSSM(Layer):
     feat = tf.concat([feat_1D_tile_A, feat_1D_tile_B, feat_2D],axis=-1)
     return tf.reshape(feat, [1,L,L,442+2*42])
 
-def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
+def categorical(y_logits, temp=1.0, sample=False, hard=True):
   # ref: https://blog.evjang.com/2016/11/tutorial-categorical-variational.html
 
   def sample_gumbel(shape, eps=1e-20):
@@ -510,22 +510,7 @@ def categorical(y_logits, temp=1.0, sample=False, hard=True, test=False):
   def one_hot(x):
     return tf.one_hot(tf.argmax(x,-1),tf.shape(x)[-1])
   
-  def one_hot_sample(logits):
-    if test == 1:
-      cat = tf.shape(logits)[-1]
-      logits_flat = tf.reshape(logits,(-1,cat))
-      hard_flat = tf.one_hot(tf.random.categorical(logits_flat,1),cat)
-      return tf.reshape(hard_flat,tf.shape(logits))
-    if test == 2:
-      return one_hot(gumbel_softmax_sample(logits))
-
-  if test == 0:
-    y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), tf.nn.softmax(y_logits,-1))
-    y_hard = one_hot(y_soft)
-    #y_hard = K.switch(hard, one_hot(y_soft), y_soft)
-  else:
-    y_soft = tf.nn.softmax(y_logits,-1)
-    y_hard = K.switch(sample, one_hot_sample(y_logits), one_hot(y_logits))
-                                     
+  y_soft = K.switch(sample, gumbel_softmax_sample(y_logits), tf.nn.softmax(y_logits,-1))
+  y_hard = K.switch(hard, one_hot(y_soft), y_soft)                                     
   y_hard = tf.stop_gradient(y_hard - y_soft) + y_soft
   return y_soft, y_hard
