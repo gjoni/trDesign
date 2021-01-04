@@ -3,6 +3,8 @@ import warnings, logging, os
 warnings.filterwarnings('ignore',category=FutureWarning)
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+import tensorflow.python.util.deprecation as deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 import numpy as np
 
